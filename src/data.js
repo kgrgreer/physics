@@ -1,0 +1,284 @@
+// alpha-emitters-extractor.js
+// Generates CSV of ground-state alpha emitters from NUBASE2020 + AME2020
+// Browser-only; run via button or directly
+
+const LOCAL = true;  // true = local files; false = direct IAEA fetch (CORS permitting)
+
+const BASE_URL       = LOCAL ? '' : 'https://www-nds.iaea.org/amdc/ame2020/';
+const NUBASE_FILENAME = 'nubase_4.mas20.txt';
+const AME_FILENAME    = 'mass_1.mas20.txt';
+
+const NUBASE_URL = BASE_URL + NUBASE_FILENAME;
+const AME_URL    = BASE_URL + AME_FILENAME;
+
+const S = 9.5e-18;
+
+// ────────────────────────────────────────────────
+// Generic fixed-width parser
+// ────────────────────────────────────────────────
+function parseFixedWidthFile(text, schema) {
+  const lines = text.split('\n');
+  const results = [];
+
+  for (let line of lines) {
+    if (!line.trim() || line.startsWith('#')) continue;
+
+    const obj = {};
+
+    for (const entry of schema) {
+      const [key, start, end, parser = s => s] = entry;  // default: identity
+
+      if (start === 0 && end === 0) {
+        // computed field
+        try {
+          obj[key] = parser(null, obj);
+        } catch {
+          obj[key] = null;
+        }
+      } else {
+        const raw = line.slice(start - 1, end);
+        const trimmed = raw.trim();
+        try {
+          obj[key] = parser(trimmed, obj);
+        } catch {
+          obj[key] = null;
+        }
+      }
+    }
+
+    // Optional: clean NaN from numeric fields (can be extended per schema)
+    if (obj.massExcess != null && Number.isNaN(obj.massExcess)) obj.massExcess = null;
+    if (obj.massUnc    != null && Number.isNaN(obj.massUnc))    obj.massUnc    = null;
+
+    if (Object.keys(obj).length > 0) results.push(obj);
+  }
+
+  return results;
+}
+
+// ────────────────────────────────────────────────
+// NUBASE2020 schema (as before, minor cleanup)
+// ────────────────────────────────────────────────
+const NUBASE_SCHEMA = [
+  ['AAA',         1,   3, parseInt],
+  ['ZZZi',        5,   8, parseInt],
+  ['A_El',       12,  16],
+  ['s',          17,  17],
+  ['Mass',       19,  31, parseFloat],
+  ['dMass',      32,  42, parseFloat],
+  ['Exc',        43,  54, parseFloat],
+  ['dE',         55,  65, parseFloat],
+  ['T',          70,  78, s => s === 'stbl' ? 'stable' : s],
+  ['unit_T',     79,  80, s => s.toLowerCase()],
+  ['dT',         82,  88],
+  ['Jpi',        89, 102],
+  ['Ensdf_year',103, 104],
+  ['Discovery', 115, 118],
+  ['BR',        120, 209],
+
+  // computed
+  ['Z', 0, 0, (_, o) => o.ZZZi != null ? Math.floor(o.ZZZi / 10) : null],
+  ['isGroundState', 0, 0, (_, o) => o.ZZZi != null && o.ZZZi % 10 === 0],
+  ['element', 0, 0, (_, o) => (o.A_El || '').match(/[A-Za-z]{1,2}$/)?.[0] ?? '??'],
+  ['nuclide', 0, 0, (_, o) => o.element && o.AAA ? `${o.element}-${o.AAA}` : null],
+  ['halfLifeValue', 0, 0, (_, o) => {
+    if (o.T == null || o.T === 'stable') return null;
+    const cleaned = String(o.T).replace(/[<~]/g, '').trim();
+    const num = parseFloat(cleaned);
+    return Number.isNaN(num) ? null : num;
+  }],
+  ['hasAlphaDecay', 0, 0, (_, o) => !!o.BR && /A=|\bα\b|AD/i.test(o.BR)],
+  ['isMeasuredHalfLife', 0, 0, (_, o) =>
+    o.T != null && o.T !== 'stable' &&
+    !String(o.T).includes('#') &&
+    o.halfLifeValue != null &&
+    o.unit_T && o.unit_T !== ''
+  ],
+  ['isHeavyAlphaCandidate', 0, 0, (_, o) =>
+//    o.BR.indexOf(';') == -1 && // avoids those with other decay types
+    o.isGroundState && o.AAA >= 100 && o.hasAlphaDecay && o.isMeasuredHalfLife
+  ],
+  // ── NEW: half-life converted to seconds ──
+  ['halfLife_s', 0, 0, (_, o) => {
+    if (o.halfLifeValue == null || o.unit_T == null) return null;
+
+    const val = o.halfLifeValue;
+    let factor;
+
+    switch (o.unit_T) {
+      case 'ps': factor = 1e-12; break;
+      case 'ns': factor = 1e-9;  break;
+      case 'us': case 'μs': factor = 1e-6; break;
+      case 'ms': factor = 1e-3;  break;
+      case 's':  factor = 1;     break;
+      case 'm':  factor = 60;    break;
+      case 'h':  factor = 3600;  break;
+      case 'd':  factor = 86400; break;
+      case 'y':  factor = 365.25 * 86400; break;   // approximate tropical year
+      case 'ky': factor = 1000 * 365.25 * 86400; break;
+      case 'my': factor = 1e6 * 365.25 * 86400;  break;
+      case 'gy': factor = 1e9 * 365.25 * 86400;  break;
+      case 'ty': factor = 1e12 * 365.25 * 86400; break;  // rarely used
+      default:   return null;  // unknown unit
+    }
+
+    return val * factor;
+  }],
+  /*
+  [
+    'calcDecay', 0, 0, (_, o) => {
+      const S = 9.5e-18;
+      const Q = o.Q_alpha_MeV;
+      const Z = o.Z;
+
+      return S * Q * Z;
+    }
+  ]*/
+];
+
+// ────────────────────────────────────────────────
+// AME2020 schema (mass_1.mas20.txt)
+// Positions verified against official header
+// ────────────────────────────────────────────────
+const AME_SCHEMA = [
+  ['cc',           1,   1],                             // a1 control (0/1)
+  ['NZ',           2,   4, parseInt],                   // i3
+  ['N',            5,   9, parseInt],
+  ['Z',           10,  14, parseInt],
+  ['A',           15,  19, parseInt],
+  ['el',          21,  23],
+  ['o',           24,  27],                             // qualifier / flag
+  ['massExcess',  29,  42, parseFloat],                 // f14.6 mass excess (keV)
+  ['massUnc',     43,  54, parseFloat],                 // f12.6 unc
+  ['bindingA',    56,  68, parseFloat],                 // f13.5 BE/A
+  ['bindingUnc',  69,  78, parseFloat],                 // f10.5
+  ['betaMode',    80,  81],
+  ['betaQ',       82,  94, parseFloat],                 // f13.5 beta-decay energy
+  ['betaUnc',     95, 105, parseFloat],
+  ['flag',       107, 109, parseInt],                   // i3
+  ['atomicMass_uu', 111, 123, parseFloat],              // f13.6 micro-u
+  ['atomicUnc',    124, 135, parseFloat],               // f12.6
+
+  // computed / reliability
+  ['nuclide', 0, 0, (_, o) => o.el && o.A ? `${o.el.trim()}-${o.A}` : null],
+  ['massExcessReliable', 0, 0, (_, o) => {
+    if (o.massExcess == null || Number.isNaN(o.massExcess) || o.massUnc == null || Number.isNaN(o.massUnc)) return false;
+    // # replaces decimal point → estimated → not reliable for your Qα use
+    const rawMassStr = o.massExcess.toString(); // but better to check original slice if needed
+    return !rawMassStr.includes('#');
+  }]
+];
+
+// ────────────────────────────────────────────────
+// Main function
+// ────────────────────────────────────────────────
+async function generateAlphaEmittersCSV() {
+  const status = document.createElement('p');
+  status.textContent = 'Loading NUBASE2020 and AME2020...';
+  document.body.appendChild(status);
+
+  try {
+    const [nubaseResp, ameResp] = await Promise.all([
+      fetch(NUBASE_URL),
+      fetch(AME_URL)
+    ]);
+
+    if (!nubaseResp.ok || !ameResp.ok) throw new Error('Fetch failed');
+
+    const nubaseText = await nubaseResp.text();
+    const ameText    = await ameResp.text();
+
+    // ─── Parse both files using generic function ───
+    const nubaseData = parseFixedWidthFile(nubaseText, NUBASE_SCHEMA);
+    const ameData    = parseFixedWidthFile(ameText,    AME_SCHEMA);
+
+    // Build fast lookup Map from AME
+    const ameMap = new Map();
+    for (const entry of ameData) {
+      if (entry.A && entry.Z && entry.massExcess != null) {
+        ameMap.set(`${entry.A},${entry.Z}`, {
+          me: entry.massExcess,
+          reliable: entry.massExcessReliable ?? false
+        });
+      }
+    }
+
+    // ⁴He reference (very reliable in AME2020)
+    const he4   = ameMap.get('4,2');
+    const he4ME = he4?.reliable ? he4.me : 2424.91587; // keV fallback
+
+    // ─── Filter & compute Qα ───
+    const rows = [];
+
+    for (const data of nubaseData) {
+      if ( ! data.isHeavyAlphaCandidate ) continue;
+
+      // TODO: perform as virtual fields
+      const parentKey   = `${data.AAA},${data.Z}`;
+      const daughterKey = `${data.AAA - 4},${data.Z - 2}`;
+
+      const parent   = ameMap.get(parentKey);
+      const daughter = ameMap.get(daughterKey);
+
+      if (!parent?.reliable || !daughter?.reliable) continue;
+
+      const Q_keV = parent.me - daughter.me - he4ME;
+      if ( Q_keV <= 0 ) continue;
+
+      const Q_MeV = (Q_keV / 1000).toFixed(5);
+
+      // TODO: skip this step
+      rows.push({
+        A:           data.AAA,
+        Z:           data.Z,
+        Nuclide:     data.nuclide,
+        HalfLife:    data.halfLifeValue,
+        Unit:        data.unit_T,
+        halfLife_s:  data.halfLife_s,
+        Q_alpha_MeV: Q_MeV,
+        DecayModes:  data.BR?.slice(0, 60) || '',
+        Source:      'NUBASE2020 + AME2020',
+        calcDecay:   Q_MeV * S * data.Z
+      });
+    }
+
+    console.log(`Found ${rows.length} qualifying ground-state alpha emitters`);
+
+    // ─── CSV export ───
+    let csv = 'A,Z,Nuclide,HalfLife,Unit,Q_alpha_MeV,DecayModes,CalcDecay\n';
+    let html = '<table><tr><th>A</th><th>Z</th><th>Nuclide</th><th>HalfLife</th><th>Unit</th><th>HalfLife (s)</th><th>Q_alpha_MeV</th><th>Calculated Decay</th><th>DecayModes</th><tr>';
+    for (let r of rows) {
+
+      if ( r.Nuclide === 'U-238' ) console.log('u238:', r);
+
+      csv += `${r.A},${r.Z},"${r.Nuclide}",${r.HalfLife},${r.Unit},${r.halfLife_s},${r.Q_alpha_MeV},"${r.DecayModes.replace(/"/g, '""')}",${r.calcDecay}\n`;
+      html += `<tr><td>${r.A}</td><td>${r.Z}</td><td>${r.Nuclide}</td><td>${r.HalfLife}</td><td>${r.Unit}</td><td>${r.halfLife_s}</td><td>${r.Q_alpha_MeV}</td><td>${r.calcDecay}</td><td>${r.DecayModes.replace(/"/g, '""')}</td></tr>`;
+    }
+
+    /*
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = `alpha-emitters_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    */
+
+    status.textContent = `Done! ${rows.length} entries exported.`;
+
+    html += '</table>';
+
+    document.getElementById('table').innerHTML = html;
+//    document.getElementById('csv').innerText   = csv;
+  } catch (err) {
+    status.textContent = `Error: ${err.message}`;
+    console.error(err);
+  }
+}
+
+// Run automatically (or attach to button)
+generateAlphaEmittersCSV();
