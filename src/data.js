@@ -76,7 +76,7 @@ function parseFixedWidthFile(text, schema) {
 // Load bignumber.js (add this to your HTML or import in Node)
 // <script src="https://cdnjs.cloudflare.com/ajax/libs/bignumber.js/9.1.2/bignumber.min.js"></script>
 
-function calculateDecayRate_paperModel(A, Z, halfLife_s, Q_alpha_Mev) {
+function calculateDecayRate_paperModel(A, Z, halfLife_s, Q_alpha_MeV) {
   // Use Decimal for precision
   const D = Decimal;
 
@@ -88,7 +88,7 @@ function calculateDecayRate_paperModel(A, Z, halfLife_s, Q_alpha_Mev) {
   const ln2       = new D(Math.log(2));
 
   const Z_d = new D(Z - 2);
-  const Q   = new D(Q_alpha_Mev);
+  const Q   = new D(Q_alpha_MeV);
 
   // Step 1: Gamow penetrability P
   // log₁₀(P) = - (50 × Z_d / √Q)
@@ -177,7 +177,6 @@ const NUBASE_SCHEMA = [
   ['halfLife_s', 0, 0, (_, o) => {
     if ( o.halfLifeValue == null || o.unit_T == null ) throw 'skip';
 
-    const val = o.halfLifeValue;
     let factor;
 
     switch (o.unit_T) {
@@ -194,13 +193,37 @@ const NUBASE_SCHEMA = [
       case 'my': factor = 1e6 * 365.25 * 86400;  break;
       case 'gy': factor = 1e9 * 365.25 * 86400;  break;
       case 'ty': factor = 1e12 * 365.25 * 86400; break;  // rarely used
-    default:   throw 'skip';
+      default:   throw 'skip';
     }
 
-    return val * factor;
+    return o.halfLifeValue * factor;
+  }],
+  ['halfLifeLog10', 0, 0, (_, o) => {
+    if ( o.halfLifeValue == null || o.unit_T == null ) throw 'skip';
+
+    let factor;
+
+    switch (o.unit_T) {
+      case 'ps': factor = 1e-12; break;
+      case 'ns': factor = 1e-9;  break;
+      case 'us': case 'μs': factor = 1e-6; break;
+      case 'ms': factor = 1e-3;  break;
+      case 's':  factor = 1;     break;
+      case 'm':  factor = 60;    break;
+      case 'h':  factor = 3600;  break;
+      case 'd':  factor = 86400; break;
+      case 'y':  factor = 365.25 * 86400; break;   // approximate tropical year
+      case 'ky': factor = 1000 * 365.25 * 86400; break;
+      case 'my': factor = 1e6 * 365.25 * 86400;  break;
+      case 'gy': factor = 1e9 * 365.25 * 86400;  break;
+      case 'ty': factor = 1e12 * 365.25 * 86400; break;  // rarely used
+      default:   throw 'skip';
+    }
+
+    return Math.log10(o.halfLifeValue) + Math.log10(factor);
   }],
   [
-    'Q_alpha_Mev', 0, 0, (_, o) => {
+    'Q_alpha_MeV', 0, 0, (_, o) => {
       const parentKey   = `${o.AAA},${o.Z}`;
       const daughterKey = `${o.AAA - 4},${o.Z - 2}`;
 
@@ -216,11 +239,11 @@ const NUBASE_SCHEMA = [
   ],
   [
     'calcHL', 0, 0, (_, o) => {
-      const A = o.AAA, Z = o.Z, halfLife_s = o.halfLife_s, Q_alpha_Mev = o.Q_alpha_Mev;
-      const r = calculateDecayRate_paperModel(A, Z, halfLife_s, Q_alpha_Mev);
+      const A = o.AAA, Z = o.Z, halfLife_s = o.halfLife_s, Q_alpha_MeV = o.Q_alpha_MeV;
+      const r = calculateDecayRate_paperModel(A, Z, halfLife_s, Q_alpha_MeV);
 
       if ( o.nuclide === 'U-238' )
-        console.log(o.nuclide, 'input:', A, Z, halfLife_s, Q_alpha_Mev, 'output:', {...o, ...r});
+        console.log(o.nuclide, 'input:', A, Z, halfLife_s, Q_alpha_MeV, 'output:', {...o, ...r});
 
       return r.t_half_pred_s;
     }
@@ -306,13 +329,14 @@ async function generateAlphaEmittersCSV() {
       if ( ! data.isHeavyAlphaCandidate ) continue;
 
       rows.push({
+        ...data,
         A:           data.AAA,
         Z:           data.Z,
         Nuclide:     data.nuclide,
         HalfLife:    data.halfLifeValue,
         Unit:        data.unit_T,
         halfLife_s:  data.halfLife_s,
-        Q_alpha_Mev: data.Q_alpha_Mev,
+        Q_alpha_MeV: data.Q_alpha_MeV,
         DecayModes:  data.BR?.slice(0, 60) || '',
         Source:      'NUBASE2020 + AME2020',
         calcHL:      data.calcHL
@@ -322,15 +346,18 @@ async function generateAlphaEmittersCSV() {
     console.log(`Found ${rows.length} qualifying ground-state alpha emitters`);
 
     // ─── CSV export ───
-    let csv = 'A,Z,Nuclide,HalfLife,Unit,HalfLife_s,Q_alpha_Mev,DecayModes,CalcHL\n';
-    let html = '<table><tr><th>A</th><th>Z</th><th>Nuclide</th><th>HalfLife</th><th>Unit</th><th>HalfLife (s)</th><th>Q_alpha_Mev</th><th>Calculated HL</th><th>DecayModes</th><tr>';
+    const COLS = 'A,Z,Nuclide,HalfLife,Unit,halfLife_s,halfLifeLog10,Q_alpha_MeV,DecayModes,calcHL'.split(',');
+    let csv = COLS.join(',') + '\n';
+    let html = '<table><tr>' + COLS.map(c => `<th>${c}</th>`) + '<tr>';
     for (let r of rows) {
 
       if ( r.Nuclide === 'U-238' ) console.log('u238:', r);
 
-      csv += `${r.A},${r.Z},"${r.Nuclide}",${r.HalfLife},${r.Unit},${r.halfLife_s},${r.Q_alpha_Mev},"${r.DecayModes.replace(/"/g, '""')}",${r.calcHL}\n`;
+      csv += COLS.map(c => r[c]).join(',') + '\n';
+//      csv += `${r.A},${r.Z},"${r.Nuclide}",${r.HalfLife},${r.Unit},${r.halfLife_s},${r.Q_alpha_MeV},"${r.DecayModes.replace(/"/g, '""')}",${r.calcHL}\n`;
 
-      html += `<tr><td>${r.A}</td><td>${r.Z}</td><td>${r.Nuclide}</td><td>${r.HalfLife}</td><td>${r.Unit}</td><td>${r.halfLife_s}</td><td>${r.Q_alpha_Mev}</td><td>${r.calcHL}</td><td>${r.DecayModes.replace(/"/g, '""')}</td></tr>`;
+      html += '<tr>' + COLS.map(c => `<td>${r[c]}</td>`).join() + '</tr>';
+//      html += `<tr><td>${r.A}</td><td>${r.Z}</td><td>${r.Nuclide}</td><td>${r.HalfLife}</td><td>${r.Unit}</td><td>${r.halfLife_s}</td><td>${r.Q_alpha_MeV}</td><td>${r.calcHL}</td><td>${r.DecayModes.replace(/"/g, '""')}</td></tr>`;
     }
 
     /*
