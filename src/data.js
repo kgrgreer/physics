@@ -11,13 +11,32 @@ const AME_FILENAME    = 'mass_1.mas20.txt';
 const NUBASE_URL = BASE_URL + NUBASE_FILENAME;
 const AME_URL    = BASE_URL + AME_FILENAME;
 
-const S = 9.5e-18;
+const AME_MAP = new Map();
+
+let he4ME;
+
+const S         = 9.5e-18;               // s⁻¹ from paper
+const tau_vib   = 1e-21;                 // s
+const nu        = 1e21;                  // s⁻¹ assault frequency
+const prefactor = 50;                    // Gamow scaling constant
+const ln2       = Math.log(2);
+
+const LOG10_MIN_SAFE = -300;             // safe exponent threshold for direct computation
+const LN10          = Math.LN10;
+
+
+
+// ====================================================================
+// bnLog10(x) – computes log₁₀(x) with arbitrary precision using BigNumber.js
+// Uses series expansion for ln(1+z) after range reduction to [0.1, 10]
+// ====================================================================
+
 
 // ────────────────────────────────────────────────
 // Generic fixed-width parser
 // ────────────────────────────────────────────────
 function parseFixedWidthFile(text, schema) {
-  const lines = text.split('\n');
+  const lines   = text.split('\n');
   const results = [];
 
   for (let line of lines) {
@@ -25,36 +44,92 @@ function parseFixedWidthFile(text, schema) {
 
     const obj = {};
 
-    for (const entry of schema) {
-      const [key, start, end, parser = s => s] = entry;  // default: identity
+    try {
+      for ( const entry of schema ) {
+        const [key, start, end, parser = s => s] = entry;  // default: identity
 
-      if (start === 0 && end === 0) {
-        // computed field
-        try {
-          obj[key] = parser(null, obj);
-        } catch {
-          obj[key] = null;
-        }
-      } else {
-        const raw = line.slice(start - 1, end);
+        const raw     = line.slice(start - 1, end);
         const trimmed = raw.trim();
-        try {
-          obj[key] = parser(trimmed, obj);
-        } catch {
-          obj[key] = null;
-        }
+
+        obj[key] = parser(trimmed, obj);
       }
+
+      results.push(obj);
+    } catch (x) {
+      console.log(x);
     }
-
-    // Optional: clean NaN from numeric fields (can be extended per schema)
-    if (obj.massExcess != null && Number.isNaN(obj.massExcess)) obj.massExcess = null;
-    if (obj.massUnc    != null && Number.isNaN(obj.massUnc))    obj.massUnc    = null;
-
-    if (Object.keys(obj).length > 0) results.push(obj);
   }
 
   return results;
 }
+
+// ====================================================================
+// Final single-object calculator – uses BigNumber for full precision
+// No thresholds, no fallbacks — direct computation for all cases
+// ====================================================================
+
+// ====================================================================
+// Uses bignumber.js for full precision – direct formula implementation
+// No log-space shortcuts – computes everything as in the paper
+// ====================================================================
+
+// Load bignumber.js (add this to your HTML or import in Node)
+// <script src="https://cdnjs.cloudflare.com/ajax/libs/bignumber.js/9.1.2/bignumber.min.js"></script>
+
+function calculateDecayRate_paperModel(A, Z, halfLife_s, Q_alpha_Mev) {
+  // Use Decimal for precision
+  const D = Decimal;
+
+  // Constants from the paper
+  const S         = new D("9.5e-18");
+  const tau_vib   = new D("1e-21");
+  const nu        = new D("1e21");
+  const prefactor = new D("50");
+  const ln2       = new D(Math.log(2));
+
+  const Z_d = new D(Z - 2);
+  const Q   = new D(Q_alpha_Mev);
+
+  // Step 1: Gamow penetrability P
+  // log₁₀(P) = - (50 × Z_d / √Q)
+  const sqrtQ   = Q.sqrt();
+  const log10_P = prefactor.times(Z_d).div(sqrtQ).neg();
+
+  // P = 10^{log₁₀(P)} – decimal.js supports fractional exponents
+  const P = D(10).pow(log10_P);
+
+  // Step 2: unlocking = S × τ_vib
+  const unlocking = S.times(tau_vib);
+
+  // Step 3: λ = ν × P × unlocking
+  const lambda = nu.times(P).times(unlocking);
+
+  // Step 4: predicted half-life t₁/₂ = ln(2) / λ
+  const t_half_pred = ln2.div(lambda);
+
+  // Log residual (log₁₀(obs / pred))
+  let log_residual = null;
+  if (typeof halfLife_s === 'number' && halfLife_s > 0) {
+    const obs = new D(halfLife_s);
+    log_residual = obs.div(t_half_pred).log(10).toFixed(3);
+  }
+
+  // Format for display
+  return {
+    A,
+    Z,
+    Z_d:               Z_d.toNumber(),
+    log10_P:           log10_P.toFixed(2),
+    P:                 P.toExponential(4),
+    unlocking:         unlocking.toExponential(4),
+    lambda_s1:         lambda.toExponential(6),          // decay rate λ (s⁻¹)
+    t_half_pred_s:     t_half_pred.toExponential(4),     // predicted half-life in seconds
+    log_residual,
+    note:              "Computed with decimal.js for arbitrary precision"
+  };
+}
+
+
 
 // ────────────────────────────────────────────────
 // NUBASE2020 schema (as before, minor cleanup)
@@ -76,7 +151,7 @@ const NUBASE_SCHEMA = [
   ['Discovery', 115, 118],
   ['BR',        120, 209],
 
-  // computed
+  // Virtual Computed Fields
   ['Z', 0, 0, (_, o) => o.ZZZi != null ? Math.floor(o.ZZZi / 10) : null],
   ['isGroundState', 0, 0, (_, o) => o.ZZZi != null && o.ZZZi % 10 === 0],
   ['element', 0, 0, (_, o) => (o.A_El || '').match(/[A-Za-z]{1,2}$/)?.[0] ?? '??'],
@@ -95,12 +170,12 @@ const NUBASE_SCHEMA = [
     o.unit_T && o.unit_T !== ''
   ],
   ['isHeavyAlphaCandidate', 0, 0, (_, o) =>
-//    o.BR.indexOf(';') == -1 && // avoids those with other decay types
+    // o.BR.indexOf(';') == -1 && // avoids those with other decay types
     o.isGroundState && o.AAA >= 100 && o.hasAlphaDecay && o.isMeasuredHalfLife
   ],
   // ── NEW: half-life converted to seconds ──
   ['halfLife_s', 0, 0, (_, o) => {
-    if (o.halfLifeValue == null || o.unit_T == null) return null;
+    if ( o.halfLifeValue == null || o.unit_T == null ) throw 'skip';
 
     const val = o.halfLifeValue;
     let factor;
@@ -119,21 +194,37 @@ const NUBASE_SCHEMA = [
       case 'my': factor = 1e6 * 365.25 * 86400;  break;
       case 'gy': factor = 1e9 * 365.25 * 86400;  break;
       case 'ty': factor = 1e12 * 365.25 * 86400; break;  // rarely used
-      default:   return null;  // unknown unit
+    default:   throw 'skip';
     }
 
     return val * factor;
   }],
-  /*
   [
-    'calcDecay', 0, 0, (_, o) => {
-      const S = 9.5e-18;
-      const Q = o.Q_alpha_MeV;
-      const Z = o.Z;
+    'Q_alpha_Mev', 0, 0, (_, o) => {
+      const parentKey   = `${o.AAA},${o.Z}`;
+      const daughterKey = `${o.AAA - 4},${o.Z - 2}`;
 
-      return S * Q * Z;
+      const parent   = AME_MAP.get(parentKey);
+      const daughter = AME_MAP.get(daughterKey);
+
+      if ( ! parent?.reliable || ! daughter?.reliable ) throw 'skip';
+      const Q_keV = parent.me - daughter.me - he4ME;
+      if ( Q_keV <= 0 ) throw 'skip';
+
+      return (Q_keV / 1000).toFixed(5);
     }
-  ]*/
+  ],
+  [
+    'calcHL', 0, 0, (_, o) => {
+      const A = o.AAA, Z = o.Z, halfLife_s = o.halfLife_s, Q_alpha_Mev = o.Q_alpha_Mev;
+      const r = calculateDecayRate_paperModel(A, Z, halfLife_s, Q_alpha_Mev);
+
+      if ( o.nuclide === 'U-238' )
+        console.log(o.nuclide, 'input:', A, Z, halfLife_s, Q_alpha_Mev, 'output:', {...o, ...r});
+
+      return r.t_half_pred_s;
+    }
+  ]
 ];
 
 // ────────────────────────────────────────────────
@@ -169,6 +260,7 @@ const AME_SCHEMA = [
   }]
 ];
 
+
 // ────────────────────────────────────────────────
 // Main function
 // ────────────────────────────────────────────────
@@ -189,23 +281,23 @@ async function generateAlphaEmittersCSV() {
     const ameText    = await ameResp.text();
 
     // ─── Parse both files using generic function ───
-    const nubaseData = parseFixedWidthFile(nubaseText, NUBASE_SCHEMA);
     const ameData    = parseFixedWidthFile(ameText,    AME_SCHEMA);
 
     // Build fast lookup Map from AME
-    const ameMap = new Map();
-    for (const entry of ameData) {
-      if (entry.A && entry.Z && entry.massExcess != null) {
-        ameMap.set(`${entry.A},${entry.Z}`, {
-          me: entry.massExcess,
+    for ( const entry of ameData ) {
+      if ( entry.A && entry.Z && entry.massExcess != null ) {
+        AME_MAP.set(`${entry.A},${entry.Z}`, {
+          me:       entry.massExcess,
           reliable: entry.massExcessReliable ?? false
         });
       }
     }
 
     // ⁴He reference (very reliable in AME2020)
-    const he4   = ameMap.get('4,2');
-    const he4ME = he4?.reliable ? he4.me : 2424.91587; // keV fallback
+    const he4   = AME_MAP.get('4,2');
+    he4ME = he4?.reliable ? he4.me : 2424.91587; // keV fallback
+
+    const nubaseData = parseFixedWidthFile(nubaseText, NUBASE_SCHEMA);
 
     // ─── Filter & compute Qα ───
     const rows = [];
@@ -213,21 +305,6 @@ async function generateAlphaEmittersCSV() {
     for (const data of nubaseData) {
       if ( ! data.isHeavyAlphaCandidate ) continue;
 
-      // TODO: perform as virtual fields
-      const parentKey   = `${data.AAA},${data.Z}`;
-      const daughterKey = `${data.AAA - 4},${data.Z - 2}`;
-
-      const parent   = ameMap.get(parentKey);
-      const daughter = ameMap.get(daughterKey);
-
-      if (!parent?.reliable || !daughter?.reliable) continue;
-
-      const Q_keV = parent.me - daughter.me - he4ME;
-      if ( Q_keV <= 0 ) continue;
-
-      const Q_MeV = (Q_keV / 1000).toFixed(5);
-
-      // TODO: skip this step
       rows.push({
         A:           data.AAA,
         Z:           data.Z,
@@ -235,24 +312,25 @@ async function generateAlphaEmittersCSV() {
         HalfLife:    data.halfLifeValue,
         Unit:        data.unit_T,
         halfLife_s:  data.halfLife_s,
-        Q_alpha_MeV: Q_MeV,
+        Q_alpha_Mev: data.Q_alpha_Mev,
         DecayModes:  data.BR?.slice(0, 60) || '',
         Source:      'NUBASE2020 + AME2020',
-        calcDecay:   Q_MeV * S * data.Z
+        calcHL:      data.calcHL
       });
     }
 
     console.log(`Found ${rows.length} qualifying ground-state alpha emitters`);
 
     // ─── CSV export ───
-    let csv = 'A,Z,Nuclide,HalfLife,Unit,Q_alpha_MeV,DecayModes,CalcDecay\n';
-    let html = '<table><tr><th>A</th><th>Z</th><th>Nuclide</th><th>HalfLife</th><th>Unit</th><th>HalfLife (s)</th><th>Q_alpha_MeV</th><th>Calculated Decay</th><th>DecayModes</th><tr>';
+    let csv = 'A,Z,Nuclide,HalfLife,Unit,HalfLife_s,Q_alpha_Mev,DecayModes,CalcHL\n';
+    let html = '<table><tr><th>A</th><th>Z</th><th>Nuclide</th><th>HalfLife</th><th>Unit</th><th>HalfLife (s)</th><th>Q_alpha_Mev</th><th>Calculated HL</th><th>DecayModes</th><tr>';
     for (let r of rows) {
 
       if ( r.Nuclide === 'U-238' ) console.log('u238:', r);
 
-      csv += `${r.A},${r.Z},"${r.Nuclide}",${r.HalfLife},${r.Unit},${r.halfLife_s},${r.Q_alpha_MeV},"${r.DecayModes.replace(/"/g, '""')}",${r.calcDecay}\n`;
-      html += `<tr><td>${r.A}</td><td>${r.Z}</td><td>${r.Nuclide}</td><td>${r.HalfLife}</td><td>${r.Unit}</td><td>${r.halfLife_s}</td><td>${r.Q_alpha_MeV}</td><td>${r.calcDecay}</td><td>${r.DecayModes.replace(/"/g, '""')}</td></tr>`;
+      csv += `${r.A},${r.Z},"${r.Nuclide}",${r.HalfLife},${r.Unit},${r.halfLife_s},${r.Q_alpha_Mev},"${r.DecayModes.replace(/"/g, '""')}",${r.calcHL}\n`;
+
+      html += `<tr><td>${r.A}</td><td>${r.Z}</td><td>${r.Nuclide}</td><td>${r.HalfLife}</td><td>${r.Unit}</td><td>${r.halfLife_s}</td><td>${r.Q_alpha_Mev}</td><td>${r.calcHL}</td><td>${r.DecayModes.replace(/"/g, '""')}</td></tr>`;
     }
 
     /*
@@ -273,7 +351,7 @@ async function generateAlphaEmittersCSV() {
     html += '</table>';
 
     document.getElementById('table').innerHTML = html;
-//    document.getElementById('csv').innerText   = csv;
+    document.getElementById('csv').innerText   = csv;
   } catch (err) {
     status.textContent = `Error: ${err.message}`;
     console.error(err);
