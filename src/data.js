@@ -24,6 +24,9 @@ const ln2       = Math.log(2);
 const LOG10_MIN_SAFE = -300;             // safe exponent threshold for direct computation
 const LN10          = Math.LN10;
 
+// Use Decimal for precision
+const D = Decimal;
+D.set({ precision: 50 });
 
 
 // ====================================================================
@@ -77,58 +80,54 @@ function parseFixedWidthFile(text, schema) {
 // <script src="https://cdnjs.cloudflare.com/ajax/libs/bignumber.js/9.1.2/bignumber.min.js"></script>
 
 function calculateDecayRate_paperModel(A, Z, halfLife_s, Q_alpha_MeV) {
-  // Use Decimal for precision
-  const D = Decimal;
-
-  // Constants from the paper
-  const S         = new D("9.5e-18");
-  const tau_vib   = new D("1e-21");
-  const nu        = new D("1e21");
-  const prefactor = new D("50");
-  const ln2       = new D(Math.log(2));
-
   const Z_d = new D(Z - 2);
   const Q   = new D(Q_alpha_MeV);
 
-  // Step 1: Gamow penetrability P
   // log₁₀(P) = - (50 × Z_d / √Q)
-  const sqrtQ   = Q.sqrt();
-  const log10_P = prefactor.times(Z_d).div(sqrtQ).neg();
+  const log10_P = new D(50).times(Z_d).div(Q.sqrt()).neg();
 
-  // P = 10^{log₁₀(P)} – decimal.js supports fractional exponents
-  const P = D(10).pow(log10_P);
+  // log₁₀(unlocking) = log10(S * tau_vib) = log10(9.5e-39)
+  const log10_unlocking = new D("9.5e-39").log(10);
 
-  // Step 2: unlocking = S × τ_vib
-  const unlocking = S.times(tau_vib);
+  // log₁₀(nu) = 21
+  const log10_nu = new D(21);
 
-  // Step 3: λ = ν × P × unlocking
-  const lambda = nu.times(P).times(unlocking);
+  // log₁₀(λ) = log10(nu) + log10(P) + log10(unlocking)
+  const log10_lambda = log10_nu.plus(log10_P).plus(log10_unlocking);
 
-  // Step 4: predicted half-life t₁/₂ = ln(2) / λ
-  const t_half_pred = ln2.div(lambda);
+  // log₁₀(t₁/₂_pred) = log10(ln2) - log10(λ)
+  const log10_t_half_pred = new D(Math.log(2)).log(10).minus(log10_lambda);
 
-  // Log residual (log₁₀(obs / pred))
+  // Log residual
   let log_residual = null;
   if (typeof halfLife_s === 'number' && halfLife_s > 0) {
-    const obs = new D(halfLife_s);
-    log_residual = obs.div(t_half_pred).log(10).toFixed(3);
+    const log10_obs = new D(halfLife_s).log(10);
+    log_residual = log10_obs.minus(log10_t_half_pred).toFixed(3);
   }
 
-  // Format for display
+  // Predicted half-life as string (exponential notation)
+  let t_half_pred_s_str = "∞";
+  if (log10_t_half_pred.lt(300)) {
+    const t_half_pred = new D(10).pow(log10_t_half_pred);
+    t_half_pred_s_str = t_half_pred.toExponential(4);
+  } else {
+    const exp = Math.floor(log10_t_half_pred.toNumber());
+    const mant = new D(10).pow(log10_t_half_pred.minus(exp)).toFixed(4);
+    t_half_pred_s_str = `${mant}e+${exp}`;
+  }
+
   return {
     A,
     Z,
-    Z_d:               Z_d.toNumber(),
-    log10_P:           log10_P.toFixed(2),
-    P:                 P.toExponential(4),
-    unlocking:         unlocking.toExponential(4),
-    lambda_s1:         lambda.toExponential(6),          // decay rate λ (s⁻¹)
-    t_half_pred_s:     t_half_pred.toExponential(4),     // predicted half-life in seconds
+    Z_d: Z_d.toNumber(),
+    log10_P: log10_P.toFixed(2),
+    log10_lambda: log10_lambda.toFixed(2),
+    log10_t_half_pred: log10_t_half_pred.toFixed(2),
+    t_half_pred_s: t_half_pred_s_str,
     log_residual,
-    note:              "Computed with decimal.js for arbitrary precision"
+    note: "Computed with decimal.js in log space"
   };
 }
-
 
 
 // ────────────────────────────────────────────────
@@ -239,13 +238,17 @@ const NUBASE_SCHEMA = [
   ],
   [
     'calcHL', 0, 0, (_, o) => {
-      const A = o.AAA, Z = o.Z, halfLife_s = o.halfLife_s, Q_alpha_MeV = o.Q_alpha_MeV;
+      const A = o.AAA;
+      const Z = o.Z;
+      const halfLife_s = o.halfLife_s;
+      const Q_alpha_MeV = parseFloat(o.Q_alpha_MeV);
+
       const r = calculateDecayRate_paperModel(A, Z, halfLife_s, Q_alpha_MeV);
 
       if ( o.nuclide === 'U-238' )
         console.log(o.nuclide, 'input:', A, Z, halfLife_s, Q_alpha_MeV, 'output:', {...o, ...r});
 
-      return r.t_half_pred_s;
+      return r.t_half_pred_s;   // now a nice string like "3.9943e+2194"
     }
   ]
 ];
@@ -347,17 +350,15 @@ async function generateAlphaEmittersCSV() {
 
     // ─── CSV export ───
     const COLS = 'A,Z,Nuclide,HalfLife,Unit,halfLife_s,halfLifeLog10,Q_alpha_MeV,DecayModes,calcHL'.split(',');
-    let csv = COLS.join(',') + '\n';
-    let html = '<table><tr>' + COLS.map(c => `<th>${c}</th>`) + '<tr>';
-    for (let r of rows) {
+    let   csv  = COLS.join(',') + '\n';
+    let   html = '<table><tr>' + COLS.map(c => `<th>${c}</th>`).join() + '</tr>';
+
+    for ( let r of rows ) {
 
       if ( r.Nuclide === 'U-238' ) console.log('u238:', r);
 
-      csv += COLS.map(c => r[c]).join(',') + '\n';
-//      csv += `${r.A},${r.Z},"${r.Nuclide}",${r.HalfLife},${r.Unit},${r.halfLife_s},${r.Q_alpha_MeV},"${r.DecayModes.replace(/"/g, '""')}",${r.calcHL}\n`;
-
+      csv  += COLS.map(c => r[c]).join(',') + '\n';
       html += '<tr>' + COLS.map(c => `<td>${r[c]}</td>`).join() + '</tr>';
-//      html += `<tr><td>${r.A}</td><td>${r.Z}</td><td>${r.Nuclide}</td><td>${r.HalfLife}</td><td>${r.Unit}</td><td>${r.halfLife_s}</td><td>${r.Q_alpha_MeV}</td><td>${r.calcHL}</td><td>${r.DecayModes.replace(/"/g, '""')}</td></tr>`;
     }
 
     /*
