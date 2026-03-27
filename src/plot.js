@@ -1,12 +1,12 @@
 // ====================== INLINE SVG SCATTER PLOT ======================
-function createScatterPlot(rows) {
-  const width = 900;
-  const height = 600;
-  const padding = 60;
+function createScatterPlot(id, rows, xName, yName, errorName) {
+  const width   = 400;
+  const height  = 400;
+  const padding = 40;
 
   // Find min/max for scaling
-  const xValues = rows.map(r => parseFloat(r.halfLifeLog10));
-  const yValues = rows.map(r => parseFloat(r.calcHalfLifeLog10));
+  const xValues = rows.map(r => parseFloat(r[xName]));
+  const yValues = rows.map(r => parseFloat(r[yName]));
 
   const xMin = Math.min(...xValues) - 1;
   const xMax = Math.max(...xValues) + 1;
@@ -33,13 +33,13 @@ function createScatterPlot(rows) {
 
   // Plot points
   rows.forEach(r => {
-    const x = parseFloat(r.halfLifeLog10);
-    const y = parseFloat(r.calcHalfLifeLog10);
+    const x = parseFloat(r[xName]);
+    const y = parseFloat(r[yName]);
 
     const px = padding + (x - xMin) / (xMax - xMin) * (width - 2*padding);
     const py = height - padding - (y - yMin) / (yMax - yMin) * (height - 2*padding);
 
-    const error = Math.abs(parseFloat(r.error) || 0);
+    const error = Math.abs(parseFloat(r[errorName]) || 0);
     const radius = 4 + Math.min(error * 1.2, 8);   // larger dot = bigger error
     const color = error > 2 ? '#e74c3c' : (error > 1 ? '#f39c12' : '#3498db');
 
@@ -65,7 +65,7 @@ function createScatterPlot(rows) {
   const container = document.createElement('div');
   container.innerHTML = svg;
   document.getElementById('graphContainer')?.remove(); // clear old if exists
-  container.id = 'graphContainer';
+  container.id = id;;
   document.body.appendChild(container);
 
   // Simple tooltip on hover
@@ -78,7 +78,7 @@ function createScatterPlot(rows) {
         ${circle.dataset.nuclide}<br>
         Obs: ${circle.dataset.obs}<br>
         Pred: ${circle.dataset.pred}<br>
-        Error: ${circle.dataset.error} dex
+        Error: ${circle.dataset[errorName]} dex
       `;
     });
     circle.addEventListener('mouseleave', () => tooltip.style.display = 'none');

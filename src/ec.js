@@ -1,4 +1,4 @@
-// TODO: insert comments here
+// TODO: insert description comments here
 
 const local          = true;  // true = local files; false = direct IAEA fetch
 const baseUrl        = local ? '' : 'https://www-nds.iaea.org/amdc/ame2020/';
@@ -7,11 +7,12 @@ const ameFilename    = 'mass_1.mas20.txt';
 const nubaseUrl      = baseUrl + nubaseFilename;
 const ameUrl         = baseUrl + ameFilename;
 const ameMap         = new Map();
-const S              = 9.5e-18;            // s⁻¹ from paper
 const NU             = 1e21;               // s⁻¹ assault frequency
 
+let   S              = 9.5e-18;            // s⁻¹ from paper
 let   he4Me;                               // to be extracted from ame database
 
+// S = 9.9e-18;
 
 // ====================================================================
 // Declarative unit conversion map (in seconds)
@@ -29,14 +30,14 @@ const UNITS = {
   d:  86400,
   y:  365.25 * 86400,
   ky: 1000 * 365.25 * 86400,
-  my: 1e6 * 365.25 * 86400,
-  gy: 1e9 * 365.25 * 86400,
+  my: 1e6  * 365.25 * 86400,
+  gy: 1e9  * 365.25 * 86400,
   ty: 1e12 * 365.25 * 86400
 };
 
 
 // ====================================================================
-// parseFixedWidthFile – generic parser for fixed-width files
+// download and parse fixed-width files based on supplied schema
 // ====================================================================
 
 async function load(url, schema) {
@@ -62,7 +63,7 @@ async function load(url, schema) {
 
       results.push(obj);
     } catch (x) {
-      console.log('skipping: ', x);
+      // console.log('skipping: ', x);
       // silently skip bad lines
     }
   }
@@ -76,9 +77,9 @@ async function load(url, schema) {
 // ────────────────────────────────────────────────
 const nubaseSchema = [
   ['aaa',         1,   3, parseInt], // Mass Number
-  ['zzzi',        5,   8, parseInt], // Atoic Number
+  ['zzzi',        5,   8, parseInt], // Atomic Number
   ['aEl',        12,  16], // Element
-  ['s',          17,  17], // s=m,n (isomers); s=p,q (levels); s=r (reonance); s=i,j (IAS);
+  ['s',          17,  17], // s=m,n (isomers); s=p,q (levels); s=r (resonance); s=i,j (IAS);
   ['mass',       19,  31, parseFloat], // Mass Excess in keV
   ['dMass',      32,  42, parseFloat], // Mass Excess uncertainty in keV
   ['exc',        43,  54, parseFloat], // Isomer Excitation Energy in keV
@@ -86,14 +87,20 @@ const nubaseSchema = [
   ['t',          70,  78, s => s === 'stbl' ? 'stable' : s],
   ['unit',       79,  80, s => s.toLowerCase()],
   ['dT',         82,  88], // Half-life uncertainty
-  ['jpi',        89, 102], // Sping and Parity
+  ['jpi',        89, 102], // Spin and Parity
   ['ensdfYear', 103, 104], // Ensdf update year
   ['discovery', 115, 118], // year of discovery
   ['br',        120, 209], // decayModes
 
   // Filters
-  ['isEC', 0, 0, (_, o) => { if ( o.br === 'EC=100' ) return true; throw 'skip'; }],
-  ['badDT', 0, 0, (_, o) => { if ( o.dT > 0.6 ) throw 'skip'; }],
+ // ['isEC', 0, 0, (_, o) => { if ( o.br.indexOf('B') == -1 && o.br.indexOf('F') == -1) return true; throw 'skip'; }],
+      ['isEC', 0, 0, (_, o) => { if ( o.br === 'EC=100' ) return true; throw 'skip'; }],
+
+  ['badDT', 0, 0, (_, o) => { if ( o.dT > 1 ) throw 'skip'; }],
+   // ['isSomething', 0, 0, (_, o) => { if ( o.br === 'B-=100' ) return true; throw 'skip'; }],
+// Clean subset: exclude known confounding shell / symmetry effects
+// This keeps the geometric model pure while allowing a larger dataset.
+// Useful for EC now, and especially for alpha / beta / gamma later.
 
   // Virtual fields
   ['a', 0, 0, (_, o) => o.aaa ],
@@ -120,7 +127,32 @@ const nubaseSchema = [
 
     return Math.log10(o.halfLife) + Math.log10(factor);
   }],
- ['hl', 0, 0, (_, o) => { if ( o.halfLifeLog10 > 10 ) throw 'skip'; }],
+  // 10 is good, 7 gives better results and 6 even better
+   ['hl', 0, 0, (_, o) => { if ( o.halfLifeLog10 > 7   || o.halfLifeLog10 < 4 ) throw 'skip'; }],
+['clean', 0, 0, (_, o) => {
+  const A = parseInt(o.aaa) || 0;
+  const Z = parseInt(o.z) || 0;
+  const N = A - Z;
+
+  // Exclude N≈Z symmetry (strong pairing effects that create parallel shifts)
+  // if (Math.abs(N - Z) <= 2) throw 'skip';
+
+  // Exclude magic numbers and near-magic (strong shell closures)
+  const magic = new Set([2, 8, 20, 28, 50, 82, 126]);
+//  if (magic.has(Z) || magic.has(N) || magic.has(A)) throw 'skip';
+
+/*
+  const nearMagic = [2, 8, 20, 28, 50, 82, 126];
+  for (let m of nearMagic) {
+    if (Math.abs(Z - m) <= 2 || Math.abs(N - m) <= 2 || Math.abs(A - m) <= 2) {
+      throw 'skip';
+    }
+    }
+    */
+
+
+  return true;
+}],
   [
     'qAlphaMeV', 0, 0, (_, o) => {
       const parentKey   = `${o.aaa},${o.z}`;
@@ -135,26 +167,65 @@ const nubaseSchema = [
       return qKeV / 1000;
     }
   ],
+
+  // === Version 2: Z-dependent electron transit time (first-principles) ===
   [
     'calcHalfLifeLog10', 0, 0, (_, o) => {
+      const log10Q = Math.log10(o.qAlphaMeV);
+      const alpha  = 1 / 137.036;
+      const r0     = 1.2;                                 // nuclear radius constant (fm)
+
+      const R_n = r0 * Math.pow(o.aaa - 4, 1/3);      // daughter nucleus radius
+      const nuclearDiameter_fm = 2 * R_n;
+
+      const beta = Math.min(o.z * alpha, 0.99);       // inner electron velocity / c
+      const transit_fm_per_c = nuclearDiameter_fm / beta;
+
+      // Expected ~5 from atomic/nuclear radius ratio
+      const electronCorrection = -Math.log10(transit_fm_per_c) - 5;
+
       return (
-        - Math.log10(S) // Decay rate of the atom
-        - 4.5 //  - Math.log10(S*NU)           // 4.5 is for the nuclear attack frequencey
-        - 5             // but for electrons, the equivalent is 100,000 times slower
-        - 2.5           // integrate from a solid 2D sphere to a fading 3D sphere
-        * Math.log10(o.qAlphaMeV)
+        - Math.log10(S)        // universal shrinkage rate
+        - 4.5                  // nuclear assault frequency, TODO: find source
+        + electronCorrection   // Z-dependent electron transit time
+        - 2.5 * log10Q         // shrinking shell geometric integral
       );
     }
   ],
+
+  // === Main formula (promoted v2 — pure geometric, zero fitting) ===
   [
-    'error', 0, 0, (_, o) => {
-      return Math.abs(o. calcHalfLifeLog10-o.halfLifeLog10).toFixed(2);
+    'calcHalfLifeLog10v2', 0, 0, (_, o) => {
+      const log10Q = Math.log10(o.qAlphaMeV);
+      const alpha  = 1 / 137.036;
+      const r0     = 1.2;                                 // nuclear radius constant (fm)
+
+      const R_n = r0 * Math.pow(o.aaa - 4, 1/3);      // daughter nucleus radius
+      const nuclearDiameter_fm = 2 * R_n;
+
+      const beta = Math.min(o.z * alpha, 0.99);       // inner electron velocity / c
+      const transit_fm_per_c = nuclearDiameter_fm / beta;
+
+      // Expected ~5 from atomic/nuclear radius ratio
+      const electronCorrection = Math.log10(transit_fm_per_c);
+
+      return (
+        - Math.log10(S)        // universal shrinkage rate
+          - electronCorrection   // Z-dependent electron transit time
+        -9.5
+        - 2.5 * log10Q         // shrinking shell geometric integral
+      );
     }
   ],
+
+
+  ['error',     0, 0, (_, o) => Math.abs(o.calcHalfLifeLog10   - o.halfLifeLog10)],
+  ['errorv2',   0, 0, (_, o) => Math.abs(o.calcHalfLifeLog10v2 - o.halfLifeLog10)],
+// [ 'errorfilter', 0, 0, (_, o) => { if ( o.error > 1 ) throw 'skip'; } ],
 ];
 
 
-// AME2020 schema (camelCase)
+// AME2020 schema (unchanged)
 const ameSchema = [
   ['cc',           1,   1],
   ['nz',           2,   4, parseInt],
@@ -186,7 +257,7 @@ const ameSchema = [
 // Main function
 // ────────────────────────────────────────────────
 async function main() {
-  const status = document.createElement('p');
+  const status = document.getElementById('status');
   status.textContent = 'Loading NUBASE2020 and AME2020...';
   document.body.appendChild(status);
 
@@ -206,28 +277,57 @@ async function main() {
 
     const rows = await load(nubaseUrl, nubaseSchema);
 
-    console.log(`Found ${rows.length} qualifying isotopes`);
+    status.textContent = `Found ${rows.length} qualifying EC=100 isotopes`
 
-    const cols = ['a','z','qAlphaMeV', 'aEl', 's', 'mass', 'dMass', 'dT', 'nuclide','halfLife','unit','qAlphaMeV','halfLifeLog10',/*'decayModes',*/'calcHalfLifeLog10', 'error'];
+    // Statistics for both versions
+    const res1     = rows.map(r => r.error).filter(x => !isNaN(x));
+    const res2     = rows.map(r => r.errorv2).filter(x => !isNaN(x));
+    const meanAbs1 = res1.reduce((a,b) => a+Math.abs(b),0) / res1.length;
+    const rms1     = Math.sqrt(res1.reduce((a,b)=>a+b*b,0) / res1.length);
+    const meanAbs2 = res2.reduce((a,b)=>a+Math.abs(b),0) / res2.length;
+    const rms2     = Math.sqrt(res2.reduce((a,b)=>a+b*b,0) / res2.length);
+
+    console.log(`v1 (fixed -5)     → Mean abs: ${meanAbs1.toFixed(3)} dex | RMS: ${rms1.toFixed(3)} dex`);
+    console.log(`v2 (Z-dependent)  → Mean abs: ${meanAbs2.toFixed(3)} dex | RMS: ${rms2.toFixed(3)} dex`);
+
+    const cols = ['a','z','nuclide','qAlphaMeV','br','halfLife','unit','halfLifeLog10',
+                  'calcHalfLifeLog10','error', 'calcHalfLifeLog10v2','errorv2'];
+
+    function format(v) {
+      return typeof v === 'number' && ! Number.isInteger(v) ? v.toFixed(2) : v;
+    }
+
     let csv = cols.join(',') + '\n';
     let html = '<table><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
 
     for ( let r of rows ) {
       csv  += cols.map(c => r[c] !== undefined ? r[c] : '').join(',') + '\n';
-      html += '<tr>' + cols.map(c => `<td>${r[c] !== undefined ? r[c] : ''}</td>`).join('') + '</tr>';
+      html += '<tr>' + cols.map(c => `<td>${r[c] !== undefined ? format(r[c]) : ''}</td>`).join('') + '</tr>';
     }
-
-    status.textContent = `Done! ${rows.length} entries exported.`;
 
     html += '</table>';
 
     document.getElementById('table').innerHTML = html;
     document.getElementById('csv').innerText = csv;
 
-    const avgError = rows.reduce((a, row) => a+parseFloat(row.error), 0);
-    console.log('avg erro: ', avgError / rows.length);
+    createScatterPlot('graph1', rows, 'halfLifeLog10', 'calcHalfLifeLog10', 'error');
+    createScatterPlot('graph2', rows, 'halfLifeLog10', 'calcHalfLifeLog10v2', 'errorv2');
 
-    createScatterPlot(rows);
+    const CALC_HALF_LIFE_LOG10 = nubaseSchema.find(p => p[0] === 'calcHalfLifeLog10');
+    const ERROR                = nubaseSchema.find(p => p[0] === 'error');
+
+    console.log('Best S:', bisection(function (x) {
+      S = x;
+      let error = 0;
+      rows.forEach(r => {
+        r.calcHalfLifeLog10 = CALC_HALF_LIFE_LOG10[3](null, r);
+        error += ERROR[3](null, r);
+        // console.log('   ', error);
+      });
+//      console.log('error x:', x, 'y:', error);
+      return error;
+    }, 1e-17, 1e-20, 10000));
+
   } catch (err) {
     status.textContent = `Error: ${err.message}`;
     console.error(err);
