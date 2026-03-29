@@ -1,5 +1,8 @@
 // ====================== INLINE SVG SCATTER PLOT ======================
-function createScatterPlot(id, rows, xName, yName, errorName) {
+function createScatterPlot(id, rows, xName, yName, errorName, xLabel, yLabel) {
+  if ( ! xLabel ) xLabel = xName;
+  if ( ! yLabel ) yLabel = yName;
+
   const width   = 400;
   const height  = 400;
   const padding = 40;
@@ -21,8 +24,8 @@ function createScatterPlot(id, rows, xName, yName, errorName) {
   svg += `<line x1="${padding}" y1="${padding}" x2="${padding}" y2="${height-padding}" stroke="#333" stroke-width="2"/>`; // y-axis
 
   // Labels
-  svg += `<text x="${width/2}" y="${height-15}" text-anchor="middle" font-size="14">Observed log₁₀(t½)</text>`;
-  svg += `<text x="20" y="${height/2}" text-anchor="middle" transform="rotate(-90 20 ${height/2})" font-size="14">Predicted log₁₀(t½)</text>`;
+  svg += `<text x="${width/2}" y="${height-15}" text-anchor="middle" font-size="14">${xLabel}</text>`;
+  svg += `<text x="20" y="${height/2}" text-anchor="middle" transform="rotate(-90 20 ${height/2})" font-size="14">${yLabel}</text>`;
 
   // 1:1 reference line
   const x1 = padding + (xMin - xMin) / (xMax - xMin) * (width - 2*padding);
