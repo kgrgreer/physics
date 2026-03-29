@@ -40,7 +40,7 @@ function createScatterPlot(id, rows, xName, yName, errorName) {
     const py = height - padding - (y - yMin) / (yMax - yMin) * (height - 2*padding);
 
     const error = Math.abs(parseFloat(r[errorName]) || 0);
-    const radius = 4 + Math.min(error * 1.2, 8);   // larger dot = bigger error
+    const radius = 4; // + Math.min(error * 1.2, 8);   // larger dot = bigger error
     const color = error > 2 ? '#e74c3c' : (error > 1 ? '#f39c12' : '#3498db');
 
     svg += `<circle cx="${px}" cy="${py}" r="${radius}" fill="${color}" stroke="#222" stroke-width="1"

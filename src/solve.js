@@ -5,19 +5,19 @@
  * @param {number} high - The end of the search range
  * @param {number} iterations - How many points to sample
  */
-function bisection(f, low, high, iterations = 10000) {
+function solve(f, low, high, iterations = 10000) {
   let bestX = low;
   let minY  = Infinity;
 
   // Calculate the distance between each sample point
   const step = (high - low) / iterations;
 
-  for (let i = 0; i <= iterations; i++) {
+  for ( let i = 0 ; i <= iterations ; i++ ) {
     const currentX = low + (step * i);
     const currentY = f(currentX);
 
     // If we hit NaN, skip this point and move on
-    if (isNaN(currentY)) continue;
+    if ( isNaN(currentY) ) continue;
 
     // Keep track of the X that gets us closest to zero
     if ( currentY < minY ) {
