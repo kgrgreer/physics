@@ -36,6 +36,11 @@ function createScatterPlot(id, rows, xName, yName, errorName, options = {}) {
   svg += `<line x1="${padding}" y1="${height-padding}" x2="${width-padding}" y2="${height-padding}" stroke="#333" stroke-width="2"/>`;
   svg += `<line x1="${padding}" y1="${padding}" x2="${padding}" y2="${height-padding}" stroke="#333" stroke-width="2"/>`;
 
+  // Title
+  if ( options.title ) {
+    svg += `<text x="${width/2}" y="20" text-anchor="middle" font-size="14">${options.title}</text>`;
+  }
+
   // Labels
   svg += `<text x="${width/2}" y="${height-15}" text-anchor="middle" font-size="14">${xLabel}</text>`;
   svg += `<text x="20" y="${height/2}" text-anchor="middle" transform="rotate(-90 20 ${height/2})" font-size="14">${yLabel}</text>`;
@@ -65,8 +70,8 @@ function createScatterPlot(id, rows, xName, yName, errorName, options = {}) {
     const error  = Math.abs(parseFloat(r[errorName]) || 0);
     let   radius = 1;
     let   color  = error > 2 ? '#e74c3c' : (error > 1 ? '#f39c12' : '#3498db');
-    color = r.isBetaMinusCandidate ? 'orange': 'white';
-    color = 'white';
+    // color = r.isBetaMinusCandidate ? 'orange': 'white';
+    //color = 'white';
     /*
     color = 'black';
     if ( r.br.startsWith('B+') ) color = 'red';
@@ -79,7 +84,7 @@ function createScatterPlot(id, rows, xName, yName, errorName, options = {}) {
 //    color = (['red', 'orange', 'yellow', 'green', 'brown', 'pink', 'yello', 'black'])[r.a % 8];
 
     if ( r.n == options.n ) { radius = 4; color = r.z % 2 ? 'red' : 'black'; } else { radius = 1; color = 'white'; }
-//        if ( r.z == options.z ) { color = 'red'; } else { color = 'white'; }
+        if ( r.z == options.z ) { color = 'red'; } else { color = 'white'; }
 //    if ( color == 'red' && ( r.z == 2 || r.z == 10 || r.z == 18 || r.z == 36 || r.z == 54 || r.z == 86 ) ) { color='black'; radius = 8; } //color='red';
     /*if ( color != 'white' )*/   svg += `<circle cx="${px}" cy="${py}" r="${radius}" fill="${color}" stroke="#222" stroke-width="0.3" data-id="${i}"/>`;
   });
