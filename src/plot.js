@@ -79,6 +79,9 @@ function createScatterPlot(id, rows, xName, yName, errorName, options = {}) {
     if ( options.customizePoint ) [radius, color] = options.customizePoint(r);
     if ( options.customizeSVG   ) svg = options.customizeSVG(svg, toX, toY);
 
+    if ( r.colour ) color = r.colour;
+    radius = Math.max(radius, 0.1);
+    if ( r.n == r.z ) { color = 'pink'; radius = 1; }
     svg += `<circle cx="${px}" cy="${py}" r="${radius}" fill="${color}" stroke="#222" stroke-width="0.3" data-id="${i}"/>`;
   });
 
@@ -112,8 +115,11 @@ function createScatterPlot(id, rows, xName, yName, errorName, options = {}) {
       tooltip.innerHTML     = `
         ${row.nuclide}<br>
         N=${row.n}, Z=${row.z}<br>
-        Obs: ${row[xName].toFixed(2)}<br>
-        Pred: ${row[yName].toFixed(2)}<br>
+        Exposure: ${row.betaExposure.toFixed(4)} ${row.n-row.z}<br>
+        Half-Life: ${row.halfLifeLog10.toFixed(3)}<br>
+        ${xName}: ${row[xName].toFixed(2)}<br>
+        ${yName}: ${row[yName].toFixed(2)}<br>
+        Mode: ${row.br}<br>
         Error: ${row[errorName].toFixed(2)} dex
       `;
     });

@@ -12,7 +12,19 @@ const log10          = Math.log10;
 let   S              = 9.5e-18;            // s⁻¹ from paper
 let   he4Me;                               // to be extracted from ame database
 
-const MAGIC = { 2: true, 8: true, 20: true, 28: true, 50: true, 82: true, 98: true, /*not real */114: true /* proton only */, 126: true /* neutrons only? */, 184: true, 258: true, 350:true, 462:true };
+const MAGIC = {
+  2: true,
+  8: true,
+  20: true,
+  28: true,
+  50: true,
+  82: true,
+  98: true,
+  126: true /* neutrons only? */,
+  184: true,
+  258: true,
+  350:true,
+  462:true };
 // S = 9.9e-18;
 
     function interp(s1, e1, s2, e2) {
@@ -25,6 +37,8 @@ const MAGIC = { 2: true, 8: true, 20: true, 28: true, 50: true, 82: true, 98: tr
 // ====================================================================
 // Declarative unit conversion map (in seconds)
 // ====================================================================
+
+const firstNforZ = {};
 
 const UNITS = {
   ps: 1e-12,
@@ -102,7 +116,7 @@ const nubaseSchema = [
 
   // Filters
 
-        ['isBMinus', 0, 0, (_, o) => { if ( o.br === 'B-=100' ) return true; throw 'skip'; }],
+  ['isBMinus', 0, 0, (_, o) => { if ( o.br.startsWith('B-') /* === 'B-=100'*/ ) return true; o.color='black'; /*throw 'skip';*/ }],
 
   //    ['isEC', 0, 0, (_, o) => { if ( o.br === 'EC=100' ) return true; throw 'skip'; }],
 
@@ -117,7 +131,7 @@ const nubaseSchema = [
   ['source', 0, 0, () => 'NUBASE2020 + AME2020' ],
   ['aMinusN', 0, 0, (_, o) => { return o.a/*+o.n*/; } ],
   ['i', 0, 0, (_, o) => o.zzzi % 10 ],
- ['groundStatesOnly', 0, 0, (_, o) => { if ( o.i ) throw 'skip'; } ],
+  ['groundStatesOnly', 0, 0, (_, o) => { if ( o.i ) throw 'skip'; } ],
   ['z', 0, 0, (_, o) => Math.floor(o.zzzi / 10)],
   ['n', 0, 0, (_, o) => o.aaa - o.z],
   ['zMinusN', 0, 0, (_, o) => o.z-o.n],
@@ -166,6 +180,10 @@ const nubaseSchema = [
       return qKeV / 1000;
     }
   ],
+  ['calcFirstNforZ', 0, 0, (_, o) => {
+    firstNforZ[o.z] = Math.min(o.n, firstNforZ[o.z] || 1000000);
+    return true;
+  }],
   [ 'isECLike', 0, 0, (_, o) => {
     const Z = o.z || 0;
     const A = o.a || 0;
@@ -240,6 +258,9 @@ const nubaseSchema = [
     }
   ],
 
+  [ 'nMinusZ', 0, 0, (_, o) => {
+    return o.n - firstNforZ[o.z]; // - Math.pow(o.z,1) ;// */- interp(50,118,117,177)(o.z)
+  }],
   [ 'calcHalfLifeLog10', 0, 0, (_, o) => {
     return o.bMinusHLLog10;
 
@@ -252,49 +273,51 @@ const nubaseSchema = [
   ],
 
   ['betaExposure', 0, 0, (_, o) => {
-const Z = o.z || 1;
-  const N = o.a - o.z;
+    let z = o.z;
+    let n = o.n;
 
-  // Approximate shell boundaries
-  const neutronShells = [2, 8, 20, 28, 50, 82, 126, 184];
-  const protonShells  = [2, 8, 20, 28, 50, 82, 126];
+//    const SHELLS = [2, 8, 20, 28, 50, 82, 126, 184];
+    const SHELLS = [2,6,12,8,22,32,44,58,100];
 
-  // 1. Outermost neutron shell and raw exposed neutrons
-  let lastNeutronShell = 2;
-  for (let s of neutronShells) {
-    if (N > s) lastNeutronShell = s;
-    else break;
-  }
-  const neutronsInLastShell = N - lastNeutronShell;   // these are the potentially exposed ones
-  const nextNeutronStart = neutronShells[neutronShells.indexOf(lastNeutronShell) + 1] || lastNeutronShell + 50;
-  const lastShellCapacity = nextNeutronStart - lastNeutronShell;
-  const rawNeutronFillFraction = neutronsInLastShell / lastShellCapacity;
+    let sum = 0;
+    for ( let i = 0 ; i < SHELLS.length && n ; i++ ) {
+      let s = SHELLS[i];
+      let mn = Math.min(n, s);
+      let mz = Math.min(z, s);
 
-  // 2. Next proton shell and available covering protons
-  let nextProtonShell = 2;
-  for (let s of protonShells) {
-    if (Z > s) nextProtonShell = s;
-    else break;
-  }
-  const protonsAvailable = Z - nextProtonShell;
-  const nextProtonStart = protonShells[protonShells.indexOf(nextProtonShell) + 1] || nextProtonShell + 50;
-  const protonShellCapacity = nextProtonStart - nextProtonShell;
+      if ( /*n > z && */ z < s ) {
+     //   o.colour = i == 5 ? 'red' : i == 6 ? 'orange' : i == 7 ? 'yellow' : i == 8 ? 'green' : 'black';
+        sum += /*i**/(mn-mz);
+      }
 
-  // 3. Preferential covering: protons first cover neutrons (ratio ~1 proton covers ~1.6 neutrons due to repulsion/geometry)
-  const coveringRatio = 1.3;   // tune this (higher = protons cover more neutrons)
-  const coveredNeutrons = Math.min(neutronsInLastShell, protonsAvailable * coveringRatio);
-  const uncoveredNeutrons = neutronsInLastShell - coveredNeutrons;
+      n = n-mn;
+      z = z-mz;
+    }
 
-  // 4. Remaining protons after covering
-  const protonsUsedForCovering = coveredNeutrons / coveringRatio;
-  const remainingProtons = protonsAvailable - protonsUsedForCovering;
-  const protonFillFractionAfterCovering = Math.min(1.0, remainingProtons / protonShellCapacity);
+    if ( sum != ( o.n - o.z) ) o.colour = 'green';
+    return sum;
+    if ( o.n < 87 ) {
+      o.colour = 'red';
+      return interp(55,61,1.8,6)(o.z);
+    }
 
-  // 5. Final exposure = uncovered neutrons fraction * gaps in the proton wrapping
-  const uncoveredFraction = uncoveredNeutrons / lastShellCapacity;
-  const exposure = uncoveredFraction * (1 - protonFillFractionAfterCovering) * 3.8;   // tune multiplier
+    if ( o.n < 90 ) {
+      o.colour = 'orange';
+      return interp(58,61,2.2,4.25)(o.z)-1;
+    }
 
-  return -exposure*15;  }],
+    if ( o.n < 121 ) {
+      o.colour = 'black';
+      return interp(71,109,2,7)(o.z);
+    }
+
+        throw skip;
+
+    o.colour ='green';
+    return interp(127,153,4,3)(o.z);
+
+    return sum;
+  }],
 
  // ['error',     0, 0, (_, o) => o.calcHalfLifeLog10   - o.halfLifeLog10],
   ['error',     0, 0, (_, o) => Math.abs(o.calcHalfLifeLog10   - o.halfLifeLog10)],
@@ -380,15 +403,17 @@ async function main() {
 
     html += '</table>';
 
-   document.getElementById('table').innerHTML = html;
+   // document.getElementById('table').innerHTML = html;
    // document.getElementById('csv').innerText = csv;
 
-    createScatterPlot('graph0', rows, 'betaExposure', 'halfLifeLog10', 'error', {squareAspect: true});
+    createScatterPlot('graph0', rows, 'betaExposure', 'halfLifeLog10', 'error', {squareAspect: false});
 
-    createScatterPlot('graph0', rows, 'n', 'z', 'error', {
+        createScatterPlot('graph0', rows, 'betaExposure', 'halfLifeLog10', 'error', {squareAspect: true});
+
+    createScatterPlot('graph0', rows, 'nMinusZ', 'z', 'error', {
       title: 'nXz',
       squareAspect: true,
-      customizePoint: function(o) { return [ 1+ o.halfLifeLog10/4, MAGIC[o.n] || MAGIC[o.z] ? 'red' : 'white' ]; },
+      customizePoint: function(o) { return [ 1+ o.halfLifeLog10/4, o.isBMinus ? 'babyblue' : MAGIC[o.n] || MAGIC[o.z] ? 'red' : 'white' ]; },
       customizeSVG: function(svg, toX, toY) {
         const magic = Object.keys(MAGIC);
         magic.forEach(m => {
