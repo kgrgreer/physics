@@ -12,6 +12,7 @@ const log10          = Math.log10;
 let   S              = 9.5e-18;            // s⁻¹ from paper
 let   he4Me;                               // to be extracted from ame database
 
+const MAGIC = { 2: true, 8: true, 20: true, 28: true, 50: true, 82: true, 98: true, /*not real */114: true /* proton only */, 126: true /* neutrons only? */, 184: true, 258: true, 350:true, 462:true };
 // S = 9.9e-18;
 
     function interp(s1, e1, s2, e2) {
@@ -223,16 +224,19 @@ const nubaseSchema = [
   ],
 
   [ 'bMinusHLLog10', 0, 0, (_, o) => {
-    const log10Z = Math.log10(Math.pow(o.z, Math.PI/2));
+    // XXX
+    const log10Z = Math.log10(o.a)/(Math.PI/2);
 
     return (
-      35
+      30
+//        + interp(143,86,-2,2)(o.n)
+      + interp(96, 57, 2, -2)(o.z)
       + Math.log10(S)
-        + 5* log10Z
+        -  6 *log10Z
    //     + interp(89, 86, 0, 1/2)(o.n)
         + interp(85,155,-2.4,-.6)(o.n)
 //        + interp(137, 86, 0, 6.3)(o.n)
-    )
+    )*Math.pow(o.a,0.1)
     }
   ],
 
@@ -246,6 +250,51 @@ const nubaseSchema = [
     )/(Math.sqrt(o.z)*4)+  interp(60, 115, -18, -41)(o.z)
     }
   ],
+
+  ['betaExposure', 0, 0, (_, o) => {
+const Z = o.z || 1;
+  const N = o.a - o.z;
+
+  // Approximate shell boundaries
+  const neutronShells = [2, 8, 20, 28, 50, 82, 126, 184];
+  const protonShells  = [2, 8, 20, 28, 50, 82, 126];
+
+  // 1. Outermost neutron shell and raw exposed neutrons
+  let lastNeutronShell = 2;
+  for (let s of neutronShells) {
+    if (N > s) lastNeutronShell = s;
+    else break;
+  }
+  const neutronsInLastShell = N - lastNeutronShell;   // these are the potentially exposed ones
+  const nextNeutronStart = neutronShells[neutronShells.indexOf(lastNeutronShell) + 1] || lastNeutronShell + 50;
+  const lastShellCapacity = nextNeutronStart - lastNeutronShell;
+  const rawNeutronFillFraction = neutronsInLastShell / lastShellCapacity;
+
+  // 2. Next proton shell and available covering protons
+  let nextProtonShell = 2;
+  for (let s of protonShells) {
+    if (Z > s) nextProtonShell = s;
+    else break;
+  }
+  const protonsAvailable = Z - nextProtonShell;
+  const nextProtonStart = protonShells[protonShells.indexOf(nextProtonShell) + 1] || nextProtonShell + 50;
+  const protonShellCapacity = nextProtonStart - nextProtonShell;
+
+  // 3. Preferential covering: protons first cover neutrons (ratio ~1 proton covers ~1.6 neutrons due to repulsion/geometry)
+  const coveringRatio = 1.3;   // tune this (higher = protons cover more neutrons)
+  const coveredNeutrons = Math.min(neutronsInLastShell, protonsAvailable * coveringRatio);
+  const uncoveredNeutrons = neutronsInLastShell - coveredNeutrons;
+
+  // 4. Remaining protons after covering
+  const protonsUsedForCovering = coveredNeutrons / coveringRatio;
+  const remainingProtons = protonsAvailable - protonsUsedForCovering;
+  const protonFillFractionAfterCovering = Math.min(1.0, remainingProtons / protonShellCapacity);
+
+  // 5. Final exposure = uncovered neutrons fraction * gaps in the proton wrapping
+  const uncoveredFraction = uncoveredNeutrons / lastShellCapacity;
+  const exposure = uncoveredFraction * (1 - protonFillFractionAfterCovering) * 3.8;   // tune multiplier
+
+  return -exposure*15;  }],
 
  // ['error',     0, 0, (_, o) => o.calcHalfLifeLog10   - o.halfLifeLog10],
   ['error',     0, 0, (_, o) => Math.abs(o.calcHalfLifeLog10   - o.halfLifeLog10)],
@@ -315,7 +364,7 @@ async function main() {
     console.log(`v1 (Z-dependent) → Mean abs: ${meanAbs1.toFixed(3)} dex | RMS: ${rms1.toFixed(3)} dex`);
 
     const cols = ['a','z','n', 'zzzi', 'nuclide','qAlphaMeV','br','dT','halfLife','unit','halfLifeLog10', 'log10d', 'log10v', 'log10F',
-                  'calcHalfLifeLog10','error'];
+                  'calcHalfLifeLog10','error', 'betaExposure'];
 
     function format(v) {
       return typeof v === 'number' && ! Number.isInteger(v) ? v.toFixed(2) : v;
@@ -331,23 +380,40 @@ async function main() {
 
     html += '</table>';
 
-   // document.getElementById('table').innerHTML = html;
+   document.getElementById('table').innerHTML = html;
    // document.getElementById('csv').innerText = csv;
+
+    createScatterPlot('graph0', rows, 'betaExposure', 'halfLifeLog10', 'error', {squareAspect: true});
+
+    createScatterPlot('graph0', rows, 'n', 'z', 'error', {
+      title: 'nXz',
+      squareAspect: true,
+      customizePoint: function(o) { return [ 1+ o.halfLifeLog10/4, MAGIC[o.n] || MAGIC[o.z] ? 'red' : 'white' ]; },
+      customizeSVG: function(svg, toX, toY) {
+        const magic = Object.keys(MAGIC);
+        magic.forEach(m => {
+          const x = toX(m), y = toY(m);
+          svg += `<line x1="${x}" y1="0" x2="${x}" y2="1000" stroke="#999" stroke-dasharray="4" stroke-width="1"/>`;
+          svg += `<line x1="$0" y1="${y}" x2="1000" y2="${y}" stroke="#999" stroke-dasharray="4" stroke-width="1"/>`;
+        });
+
+        for( let i = 50 ; i < 180 ; i += 10 ) {
+          const x = toX(i), y = toY(i);
+          svg += `<line x1="${x}" y1="0" x2="${x}" y2="1000" stroke="#999" stroke-width="0.2"/>`;
+          svg += `<line x1="$0" y1="${y}" x2="1000" y2="${y}" stroke="#999" stroke-width="0.2"/>`;
+        }
+        return svg;
+      }
+    });
 
     createScatterPlot('graph1', rows, 'halfLifeLog10', 'calcHalfLifeLog10', 'error',{xLabel: 'Observed log₁₀(t½)', yLabel: 'Predicted log₁₀(t½)', squareAspect: true});
 
-    for ( var i = 54 ; i < 98 ; i++ )
-      createScatterPlot('graph1', rows, 'halfLifeLog10', 'calcHalfLifeLog10', 'error',{xLabel: 'Observed log₁₀(t½)', yLabel: 'Predicted log₁₀(t½)', squareAspect: true, z: i, title: `Z=${i}`});
-/*    createScatterPlot('graph3', rows, 'halfLifeLog10', 'halfLifeLog10', 'error');
-//    createScatterPlot('graph4', rows, 'zMod4', 'halfLifeLog10', 'error', {squareAspect: false});
-    createScatterPlot('graph5', rows, 'zMod2', 'halfLifeLog10', 'error', {squareAspect: false});
-    createScatterPlot('graph4', rows, 'zMod4', 'halfLifeLog10', 'error', {squareAspect: false});
-    createScatterPlot('graph5', rows, 'nMod2', 'halfLifeLog10', 'error', {squareAspect: false});
-    createScatterPlot('graph5', rows, 'nMod4', 'halfLifeLog10', 'error', {squareAspect: false});
-    createScatterPlot('graph5', rows, 'nEqualsZ', 'halfLifeLog10', 'error', {squareAspect: false});
-    createScatterPlot('graph5', rows, 'zMinusN', 'halfLifeLog10', 'error', {squareAspect: false});
-    */
- //   createScatterPlot('graph5', rows, 'n', 'z', 'error', {squareAspect: false});
+    for ( var i = 54 ; i < 98 ; i++ ) createScatterPlot('graph1', rows, 'halfLifeLog10', 'calcHalfLifeLog10', 'error',{xLabel: 'Observed log₁₀(t½)', yLabel: 'Predicted log₁₀(t½)', squareAspect: true, z: i, title: `Z=${i}`});
+
+//        for ( var i = 84 ; i < 198 ; i++ ) createScatterPlot('graph1', rows, 'halfLifeLog10', 'calcHalfLifeLog10', 'error',{xLabel: 'Observed log₁₀(t½)', yLabel: 'Predicted log₁₀(t½)', squareAspect: true, n: i, title: `N=${i}`});
+
+//        for ( var i = 138 ; i < 300 ; i++ ) createScatterPlot('graph1', rows, 'halfLifeLog10', 'calcHalfLifeLog10', 'error',{xLabel: 'Observed log₁₀(t½)', yLabel: 'Predicted log₁₀(t½)', squareAspect: true, a: i, title: `A=${i}`});
+    //   createScatterPlot('graph5', rows, 'n', 'z', 'error', {squareAspect: false});
 
 
     const CALC_HALF_LIFE_LOG10 = nubaseSchema.find(p => p[0] === 'calcHalfLifeLog10');
