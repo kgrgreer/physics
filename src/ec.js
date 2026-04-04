@@ -387,7 +387,7 @@ async function main() {
     console.log(`v1 (Z-dependent) → Mean abs: ${meanAbs1.toFixed(3)} dex | RMS: ${rms1.toFixed(3)} dex`);
 
     const cols = ['a','z','n', 'zzzi', 'nuclide','qAlphaMeV','br','dT','halfLife','unit','halfLifeLog10', 'log10d', 'log10v', 'log10F',
-                  'calcHalfLifeLog10','error', 'betaExposure'];
+                  'calcHalfLifeLog10','error', 'betaExposure', 't'];
 
     function format(v) {
       return typeof v === 'number' && ! Number.isInteger(v) ? v.toFixed(2) : v;
@@ -403,7 +403,7 @@ async function main() {
 
     html += '</table>';
 
-   // document.getElementById('table').innerHTML = html;
+   document.getElementById('table').innerHTML = html;
    // document.getElementById('csv').innerText = csv;
 
     createScatterPlot('graph0', rows, 'betaExposure', 'halfLifeLog10', 'error', {squareAspect: false});

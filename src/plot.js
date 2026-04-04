@@ -4,9 +4,9 @@
 //   xLabel: null,           // if not provided, falls back to xName
 //   yLabel: null            // if not provided, falls back to yName
 // }
-function createScatterPlot(id, rows, xName, yName, errorName, options = {}) {
-  const width   = 500;
-  const height  = 500;
+function createScatterPlot(id, rows, xName, yName, options = {}) {
+  const width   = 1000;
+  const height  = 1000;
   const padding = 50;
 
   // Default labels if not provided in options
@@ -72,9 +72,10 @@ function createScatterPlot(id, rows, xName, yName, errorName, options = {}) {
     const px = toX(x);
     const py = toY(y);
 
-    const error  = Math.abs(parseFloat(r[errorName]) || 0);
+//    const error  = Math.abs(parseFloat(r[errorName]) || 0);
     let   radius = 2;
-    let   color  = error > 2 ? '#e74c3c' : (error > 1 ? '#f39c12' : '#3498db');
+    //    let   color  = error > 2 ? '#e74c3c' : (error > 1 ? '#f39c12' : '#3498db');
+    let color = 'white';
 
     if ( options.customizePoint ) [radius, color] = options.customizePoint(r);
     if ( options.customizeSVG   ) svg = options.customizeSVG(svg, toX, toY);
@@ -108,20 +109,21 @@ function createScatterPlot(id, rows, xName, yName, errorName, options = {}) {
   // Hover tooltip
   container.querySelectorAll('circle').forEach(circle => {
     circle.addEventListener('mousemove', e => {
-      const row = rows[circle.dataset.id];
+      const o = rows[circle.dataset.id];
       tooltip.style.left    = (e.pageX + 15) + 'px';
       tooltip.style.top     = (e.pageY - 10) + 'px';
       tooltip.style.display = 'block';
       tooltip.innerHTML     = `
-        ${row.nuclide}<br>
-        N=${row.n}, Z=${row.z}<br>
-        Exposure: ${row.betaExposure.toFixed(4)} ${row.n-row.z}<br>
-        Half-Life: ${row.halfLifeLog10.toFixed(3)}<br>
-        ${xName}: ${row[xName].toFixed(2)}<br>
-        ${yName}: ${row[yName].toFixed(2)}<br>
-        Mode: ${row.br}<br>
-        Error: ${row[errorName].toFixed(2)} dex
+        ${o.nuclide}<br>
+        N=${o.n}, Z=${o.z}<br>
+        N-Z=${o.n - o.z}<br>
+        Half-Life: ${o.halfLifeLog10.toFixed(3)}<br>
+        ${xName}: ${o[xName].toFixed(2)}<br>
+        ${yName}: ${o[yName].toFixed(2)}<br>
+        Mode: ${o.decayModes}<br>
       `;
+      //         Error: ${row[errorName].toFixed(2)} dex
+
     });
     circle.addEventListener('mouseleave', () => tooltip.style.display = 'none');
   });
