@@ -122,41 +122,73 @@ foam.CLASS({
         )/(Math.sqrt(this.z)*4)+  interp(60, 115, -18, -41)(this.z);
       }
     },
+
+
     {
       name: 'beta_exposure',
       factory: function() {
-        const N = this.n;
-        const Z = this.z;
-        if (N < 1 || Z < 1) return 0;
+        const nzRatio = this.n / this.z;
 
-        // 1. Neutron excess relative to approximate valley of stability
-        const stableN = 1.4 * Z;                    // works well for Z > 20
-        const neutronExcess = Math.max(0, N - stableN);
+        const stableRatioApprox = 1.0 + 0.00355 * this.z;   // tuned to real data
 
-        // 2. Current neutron shell + fill fraction (magic shells: 2,8,20,28,50,82,126,184)
-        const magicN = [2,8,20,28,50,82,126,184];
-        let shellStart = 0;
-        let shellEnd = 2;
-        for (let i = 1; i < magicN.length; i++) {
-          if (N <= magicN[i]) {
-            shellStart = magicN[i-1];
-            shellEnd = magicN[i];
-            break;
-          }
-        }
-        const shellCapacity = shellEnd - shellStart;
-        const fillFraction = (N - shellStart) / shellCapacity;   // 0..1
+        return Math.pow(1- (nzRatio - stableRatioApprox -0.12),-0.5);
 
-        // 3. Proton covering of the outer neutron shell (preferential covering)
-        const protonCover = Math.min(1, Z / (shellCapacity * 1.6));   // tuned to repulsion preference
+    let remZ = this.z;
+    let remN = this.n;
+    let lastI = 0; // last shell
+    if (remZ < 3 || remN < 3) return 0;
 
-        // 4. Unpaired neutron bonus (stronger staggering in B⁻)
-        const unpairedBonus = (N % 2 === 1) ? 1.25 : 1.0;
+    const SHELLS = [2, 6, 12, 8, 22, 32, 44, 58, 100];
+    // Step 1: Pair across all shells (no exposure yet)
+    const shells = [];
+    for ( let i = 0 ; i < SHELLS.length && (remN > 0 || remZ > 0) ; i++ ) {
+      const cap     = SHELLS[i];
+      const nPlaced = Math.min(remN, cap);
+      const zPlaced = Math.min(remZ, cap);
+      shells.push({ n: nPlaced, z: zPlaced, i: i, size: SHELLS[i], exposed: nPlaced-zPlaced });
+      remN -= nPlaced;
+      remZ -= zPlaced;
+      lastI = i;
+    }
+    if ( lastI < 2 ) return 0;
+    // Step 2: Get the last two non-empty shells
+    let outer = shells[lastI];
+    let inner = shells[lastI-1];
 
-        // 5. Final exposure (higher = shorter half-life)
-        return neutronExcess * (1 - protonCover) * fillFraction * unpairedBonus * 2.8;
-      }
-    },
+    this.debug = JSON.stringify([inner, outer]);
+// if ( this.n == 52 && this.z == 32 ) debugger;
+
+    // Step 3: Move protons up one level
+    let emptyNeutrons    = outer.n - outer.z;
+    let availableProtons = inner.z;
+//    let centeredness     = inner.z/inner.size;
+    let centeredness     = 1-outer.n/outer.size;
+    centeredness = 1;
+//    centeredness = Math.min(1.0, centeredness + ([1, -1, 0.1, 0.05][inner.z] || 0));
+    this.debug += ' c: ' + centeredness.toFixed(2);
+    let movedProtons     = Math.min(emptyNeutrons, Math.ceil(availableProtons*centeredness));
+
+    outer.z += movedProtons;
+    inner.z -= movedProtons;
+
+    // If you just crossed Z magic number you can borrow the most Protons
+
+    let outerExposure = Math.max(0, outer.n - outer.z);// * outer.i;
+    let innerExposure = Math.max(0, inner.n - inner.z);// * inner.i;
+
+    this.debug += ` m:${movedProtons} i:${innerExposure} o:${outerExposure}`;
+
+    let outerFilled = Math.min(1, outer.n / Math.ceil(Math.pow(outer.size,1/3)));
+
+    return outerExposure;
+    return innerExposure * (1-outerFilled) + outerExposure;
+    this.debug += ' ' + innerExposure + " " + outerExposure;
+    let exposure = outerExposure * outer.i + innerExposure * inner.i;
+//    if ( exposure < this.n ) return 0;
+    //return ( exposure > this.n-this.z ) ? exposure : 0;
+    return exposure;
+  }
+},
 
     // B⁻ half-life predictor (pure geometry, no Q)
     {
@@ -167,6 +199,11 @@ foam.CLASS({
         return 18.5 - (Math.PI / 2) * Math.log10(this.z || 1) + 0.09 * exposure + interp(19,50,-20,-8)(this.z)
         // 18.5 is the intercept (tuned once on the large dataset)
       }
+    },
+
+    {
+      name: 'nMinusZ',
+      factory: function() { return this.n - this.z; }
     }
   ]
 });

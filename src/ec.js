@@ -276,7 +276,7 @@ const nubaseSchema = [
     let z = o.z;
     let n = o.n;
 
-//    const SHELLS = [2, 8, 20, 28, 50, 82, 126, 184];
+//  const SHELLS = [2, 8, 20, 28, 50, 82, 126, 184];
     const SHELLS = [2,6,12,8,22,32,44,58,100];
 
     let sum = 0;

@@ -5,8 +5,8 @@
 //   yLabel: null            // if not provided, falls back to yName
 // }
 function createScatterPlot(id, rows, xName, yName, options = {}) {
-  const width   = 1000;
-  const height  = 1000;
+  const width   = 1200;
+  const height  = 1200;
   const padding = 50;
 
   // Default labels if not provided in options
@@ -16,6 +16,9 @@ function createScatterPlot(id, rows, xName, yName, options = {}) {
   const xValues = rows.map(r => parseFloat(r[xName]));
   const yValues = rows.map(r => parseFloat(r[yName]));
 
+  const pointRenderer = options?.pointRenderer || function(x, y, o, i) {
+    return `<circle cx="${x}" cy="${y}" r="4" fill="${o.color || 'red'}" stroke="#222" stroke-width="0.3" data-id="${i}"/>`;
+  };
   let dataMin, dataMax;
 
   if ( options.squareAspect ) {
@@ -66,25 +69,14 @@ function createScatterPlot(id, rows, xName, yName, options = {}) {
   }
 
   // Plot points
-  rows.forEach((r,i) => {
-    const x  = parseFloat(r[xName]);
-    const y  = parseFloat(r[yName]);
-    const px = toX(x);
-    const py = toY(y);
+  rows.forEach((o, i) => {
+    const x = parseFloat(o[xName]);
+    const y = parseFloat(o[yName]);
 
-//    const error  = Math.abs(parseFloat(r[errorName]) || 0);
-    let   radius = 2;
-    //    let   color  = error > 2 ? '#e74c3c' : (error > 1 ? '#f39c12' : '#3498db');
-    let color = 'white';
-
-    if ( options.customizePoint ) [radius, color] = options.customizePoint(r);
-    if ( options.customizeSVG   ) svg = options.customizeSVG(svg, toX, toY);
-
-    if ( r.colour ) color = r.colour;
-    radius = Math.max(radius, 0.1);
-    if ( r.n == r.z ) { color = 'pink'; radius = 1; }
-    svg += `<circle cx="${px}" cy="${py}" r="${radius}" fill="${color}" stroke="#222" stroke-width="0.3" data-id="${i}"/>`;
+    svg += pointRenderer(toX(x), toY(y), o, i);
   });
+
+  if ( options?.customizeSVG ) svg += options?.customizeSVG(toX, toY);
 
   svg += '</svg>';
 
@@ -120,7 +112,9 @@ function createScatterPlot(id, rows, xName, yName, options = {}) {
         Half-Life: ${o.halfLifeLog10.toFixed(3)}<br>
         ${xName}: ${o[xName].toFixed(2)}<br>
         ${yName}: ${o[yName].toFixed(2)}<br>
+        Exposure: ${o.beta_exposure.toFixed(2)}<br>
         Mode: ${o.decayModes}<br>
+        ${o.debug}
       `;
       //         Error: ${row[errorName].toFixed(2)} dex
 
