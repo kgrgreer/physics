@@ -123,72 +123,56 @@ foam.CLASS({
       }
     },
 
+    {
+      name: 'nMagic',
+      factory: function() {
+        const n = this.n, abs = Math.abs;
+        return Math.min(
+          abs(n-2),
+          abs(n-8),
+          abs(n-20),
+          abs(n-28),
+          abs(n-50),
+          abs(n-82),
+//          abs(n-126), // electron only
+          abs(n-184),
+          abs(n-258));
+      }
+    },
+
+    {
+      name: 'zMagic',
+      factory: function() {
+        const z = this.z, abs = Math.abs;
+        return Math.min(
+          abs(z-2),
+          abs(z-8),
+          abs(z-20),
+          abs(z-28),
+          abs(z-50),
+          abs(z-82),
+          abs(z-126));
+      }
+    },
+
+    {
+      name: 'totalMagic',
+      factory: function() {
+        this.debug = `magic: N ${this.nMagic} + Z ${this.zMagic} = ${this.nMagic + this.zMagic}`;
+        return this.nMagic + this.zMagic;
+//        return Math.min(this.nMagic, this.zMagic);
+      }
+    },
 
     {
       name: 'beta_exposure',
       factory: function() {
-        const nzRatio = this.n / this.z;
-
+        const nzRatio           = Math.pow(this.n / this.z, -Math.PI/2);
         const stableRatioApprox = 1.0 + 0.00355 * this.z;   // tuned to real data
 
-        return Math.pow(1- (nzRatio - stableRatioApprox -0.12),-0.5);
-
-    let remZ = this.z;
-    let remN = this.n;
-    let lastI = 0; // last shell
-    if (remZ < 3 || remN < 3) return 0;
-
-    const SHELLS = [2, 6, 12, 8, 22, 32, 44, 58, 100];
-    // Step 1: Pair across all shells (no exposure yet)
-    const shells = [];
-    for ( let i = 0 ; i < SHELLS.length && (remN > 0 || remZ > 0) ; i++ ) {
-      const cap     = SHELLS[i];
-      const nPlaced = Math.min(remN, cap);
-      const zPlaced = Math.min(remZ, cap);
-      shells.push({ n: nPlaced, z: zPlaced, i: i, size: SHELLS[i], exposed: nPlaced-zPlaced });
-      remN -= nPlaced;
-      remZ -= zPlaced;
-      lastI = i;
-    }
-    if ( lastI < 2 ) return 0;
-    // Step 2: Get the last two non-empty shells
-    let outer = shells[lastI];
-    let inner = shells[lastI-1];
-
-    this.debug = JSON.stringify([inner, outer]);
-// if ( this.n == 52 && this.z == 32 ) debugger;
-
-    // Step 3: Move protons up one level
-    let emptyNeutrons    = outer.n - outer.z;
-    let availableProtons = inner.z;
-//    let centeredness     = inner.z/inner.size;
-    let centeredness     = 1-outer.n/outer.size;
-    centeredness = 1;
-//    centeredness = Math.min(1.0, centeredness + ([1, -1, 0.1, 0.05][inner.z] || 0));
-    this.debug += ' c: ' + centeredness.toFixed(2);
-    let movedProtons     = Math.min(emptyNeutrons, Math.ceil(availableProtons*centeredness));
-
-    outer.z += movedProtons;
-    inner.z -= movedProtons;
-
-    // If you just crossed Z magic number you can borrow the most Protons
-
-    let outerExposure = Math.max(0, outer.n - outer.z);// * outer.i;
-    let innerExposure = Math.max(0, inner.n - inner.z);// * inner.i;
-
-    this.debug += ` m:${movedProtons} i:${innerExposure} o:${outerExposure}`;
-
-    let outerFilled = Math.min(1, outer.n / Math.ceil(Math.pow(outer.size,1/3)));
-
-    return outerExposure;
-    return innerExposure * (1-outerFilled) + outerExposure;
-    this.debug += ' ' + innerExposure + " " + outerExposure;
-    let exposure = outerExposure * outer.i + innerExposure * inner.i;
-//    if ( exposure < this.n ) return 0;
-    //return ( exposure > this.n-this.z ) ? exposure : 0;
-    return exposure;
-  }
-},
+        return 12 + 10*(nzRatio - stableRatioApprox -0.12); //+ interp(56,2,2.5,-2.5)(this.n-this.z) + interp(27,57,0,-.8)(this.n-this.z);// + interp(45,2,0,-2.5)(this.n-this.z);
+      }
+    },
 
     // B⁻ half-life predictor (pure geometry, no Q)
     {

@@ -67,9 +67,17 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
   function exposureRenderer(x, y, o, i) {
     let b = o.beta_exposure;
 
-    const color = `rgb(${(o.n-o.z)*10},0,0)`;
+    const color = `rgb(${(o.n-o.z)*5},0,0)`;
     const stroke = o.decayModes.indexOf('B-') == -1 ? 'green' : '#222';
     const strokeWidth = o.decayModes.indexOf('B-') == -1 ? '2' : '0';
+    return `<circle cx="${x}" cy="${y}" r="4" fill="${color}" stroke="${stroke}" stroke-width="${strokeWidth}" data-id="${i}"/>`;
+  }
+
+  function magicRenderer(x, y, o, i) {
+    let m = o.totalMagic;
+
+    const color = `rgb(${m*21},0,0)`;
+    const stroke = 'black', strokeWidth = 0.5;
     return `<circle cx="${x}" cy="${y}" r="4" fill="${color}" stroke="${stroke}" stroke-width="${strokeWidth}" data-id="${i}"/>`;
   }
 
@@ -97,9 +105,20 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 
   createScatterPlot('graph0', data, 'n', 'z', { pointRenderer: exposureRenderer, customizeSVG: drawMagicLines});
 
-  createScatterPlot('graph0', data.filter(o => o.decayModes.indexOf('B-=') != -1), 'beta_exposure', 'halfLifeLog10', { xxxpointRenderer: exposureRenderer, squareAspect: true });
+  createScatterPlot('graph0', data.filter(o => o.decayModes.indexOf('B-=') != -1), 'beta_exposure', 'halfLifeLog10', { pointRenderer: exposureRenderer, squareAspect: true });
 
-  return;
+  createScatterPlot('graph0', data.filter(o => o.decayModes.indexOf('B-=') != -1), 'beta_exposure', 'halfLifeLog10', { pointRenderer: magicRenderer, squareAspect: true });
+
+  for ( let n = 3 ; n < 177 ; n++ ) {
+    createScatterPlot('graph0', data.filter(o => o.decayModes.indexOf('B-=') != -1), 'beta_exposure', 'halfLifeLog10', {
+      pointRenderer:   function (x, y, o, j) {
+        const color = (o.n) == n ? 'red' : 'white';
+        return `<circle cx="${x}" cy="${y}" r="4" fill="${color}" stroke="#222" stroke-width="0.3" data-id="${j}"/>`;
+      },
+      title: 'N = ' + n,
+      squareAspect: true
+    });
+  }
 
   createScatterPlot('graph0', data, 'halfLifeLog10', 'calcHalfLifeLog10', {
     squareAspect: true,
@@ -119,4 +138,13 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 
 //  document.getElementById('table').innerHTML = foam.TableView(data, ['nuclide', 'a', 'n', 'z', 'decayModes', 't', 'unit', 'halfLifeLog10', 'calcHalfLifeLog10']);
 
+  function avg(data, p) {
+    let sum = 0;
+    data.forEach(o => sum += o[p]);
+    return sum/data.length;
+  }
+
+  data = data.filter(o => o.decayModes.indexOf('B-=') == -1);
+  console.log('average even half-life log10:', avg(data.filter(o => o.n % 2 == 0), 'halfLifeLog10'));
+  console.log('average odd  half-life log10:', avg(data.filter(o => o.n % 2 == 1), 'halfLifeLog10'));
 });
