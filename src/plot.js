@@ -68,6 +68,11 @@ function createScatterPlot(id, rows, xName, yName, options = {}) {
     return height - padding - (y - yMin) / (yMax - yMin) * (height - 2*padding);
   }
 
+  if ( toX(0) > x1 && toY(0) < y1 ) {
+    svg += `<line x1="${toX(0)}" y1="${y1}" x2="${toX(0)}" y2="${y2}" stroke="#222" stroke-width="2"/>`;
+    svg += `<line x1="${x1}" y1="${toY(0)}" x2="${x2}" y2="${toY(0)}" stroke="#222" stroke-width="2"/>`;
+  }
+
   // Plot points
   rows.forEach((o, i) => {
     const x = parseFloat(o[xName]);

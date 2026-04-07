@@ -111,17 +111,6 @@ foam.CLASS({
         return Math.log10(this.t) + Math.log10(UNITS[this.unit]);
       }
     },
-    {
-      name: 'calcHalfLifeLog10',
-      factory: function() {
-        const log10Z = Math.log10(this.z);
-        return (
-          5
-          + Math.log10(S)
-          + this.n *5* log10Z
-        )/(Math.sqrt(this.z)*4)+  interp(60, 115, -18, -41)(this.z);
-      }
-    },
 
     {
       name: 'nMagic',
@@ -167,10 +156,60 @@ foam.CLASS({
     {
       name: 'beta_exposure',
       factory: function() {
-        const nzRatio           = Math.pow(this.n / this.z, -Math.PI/2);
-        const stableRatioApprox = 1.0 + 0.00355 * this.z;   // tuned to real data
+        const nzRatio           = this.n / this.z;
+        const stableRatioApprox = 1.0 + 0.00434 * this.z;   // tuned to real data
 
-        return 12 + 10*(nzRatio - stableRatioApprox -0.12); //+ interp(56,2,2.5,-2.5)(this.n-this.z) + interp(27,57,0,-.8)(this.n-this.z);// + interp(45,2,0,-2.5)(this.n-this.z);
+        return nzRatio - stableRatioApprox-0.12;
+      }
+    },
+
+    {
+      name: 'calcHalfLifeLog10',
+      factory: function() {
+        let n = this.n, z = this.z;
+        this.color = 'red';
+//        if ( n > 126 && n < 133 && z > 83) { this.color='black'; } //else if ( n > 82 ) { z -= 3; }
+        const log10Z = Math.log10(z);
+        let hl=           (( n > 126 &&  n < 133 && z > 83) ? -3 : 0) +
+(
+          5
+          + Math.log10(S)
+          + n *5* log10Z
+)/(Math.sqrt(z)*4) + interp(60, 115, -18, -41)(z);
+
+        let bonus = 0;
+
+//        this.color = '#fff0';
+        if ( this.beta_exposure > 0.1 ) {
+          this.color = 'black';
+        }
+        if ( n-z == 1 ) {
+          bonus = -1;
+        } else if ( n-z == -1 ) {
+          bonus = -3.5;
+        } else if ( n-z == -1 || n-z == -2 || n-z == -3 || n-z == -4 ) {
+          bonus = -4;
+        } else if ( n == z && this.beta_exposure < 0 && n % 2 == 0 ) {
+          bonus = -1;
+        } else if ( n == z && this.beta_exposure < 0 && n % 2 == 1 ) {
+          bonus = -4;
+        } else if ( n == 126 ) {
+          bonus = -2;
+        } else if ( n >= 127 && n < 135 ) {
+          if ( this.beta_exposure < 0 ) {
+            bonus = -3;
+          this.color = 'lime';
+          } else {
+            bonus += 1;
+          this.color = 'white';
+          }
+        }
+
+        hl += (this.beta_exposure > 0.001 ? 6+2*(13-hl)-21.5 : 0) + bonus;
+
+        if ( hl > 0) hl = Math.pow(hl, 1.2)/1.3;
+
+        return hl -0.6;
       }
     },
 
@@ -188,6 +227,19 @@ foam.CLASS({
     {
       name: 'nMinusZ',
       factory: function() { return this.n - this.z; }
+    },
+
+    {
+      name: 'error',
+      factory: function() {
+        const error = Math.abs(this.halfLifeLog10-this.calcHalfLifeLog10);
+        if ( error < 3 ) this.color = 'red';
+        if ( error < 3 ) this.color = 'orange';
+        if ( error < 2 ) this.color = 'yellow';
+        if ( error < 1 ) this.color = 'green';
+        return error;
+      }
     }
+
   ]
 });
