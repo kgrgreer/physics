@@ -108,6 +108,14 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
   const bMinusData = data.filter(o => o.decayModes.startsWith('B-'));
   const ecLikeData = data.filter(o => o.decayModes.indexOf('B-') == -1 && o.beta_exposure < 3);
 
+const data2 = ecLikeData.filter(e => e.decayModes=='EC=100' && isFinite(e.calc2HalfLifeLog10))
+  createScatterPlot('graph0', data2, 'calc2HalfLifeLog10', 'halfLifeLog10', {
+    title: 'Calc2 HL',
+    squareAspect: true,
+    pointRenderer: nMinusZPointRenderer
+  });
+
+  // return;
 
   createScatterPlot('graph0', data, 'calcHalfLifeLog10', 'halfLifeLog10', {
     title: 'Calc HL',
@@ -119,7 +127,7 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 
   createScatterPlot('graph0', data, 'n', 'z', { pointRenderer: pointRenderer, customizeSVG: drawMagicLines});
 
-  return;
+//  return;
   createScatterPlot('graph0', bMinusData, 'beta_exposure', 'halfLifeLog10', { pointRenderer: exposureRenderer, squareAspect: true });
 
   createScatterPlot('graph0', bMinusData, 'beta_exposure', 'halfLifeLog10', { pointRenderer: magicRenderer, squareAspect: true });
@@ -148,7 +156,7 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 
   createScatterPlot('graph0', data.filter(o => o.decayModes.startsWith('B-')), 'n', 'z');
 
-  document.getElementById('table').innerHTML = foam.TableView(data, ['nuclide', 'a', 'n', 'z', 'decayModes', 't', 'unit', 'halfLifeLog10', 'calcHalfLifeLog10', 'error']);
+  document.getElementById('table').innerHTML = foam.TableView(data2, ['nuclide', 'a', 'n', 'z', 'decayModes', 't', 'unit', 'halfLifeLog10', 'calcHalfLifeLog10', 'error', 'calc2HalfLifeLog10']);
 
   function avg(data, p) {
     let sum = 0;

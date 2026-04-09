@@ -164,6 +164,27 @@ foam.CLASS({
     },
 
     {
+      name: 'calc2HalfLifeLog10',
+      factory: function() {
+        const n = this.n, z = this.z;
+
+        // thl = ln(2)/(f*p)
+        let f = 10e21;
+//        let p = S * Math.pow(z, 2.5*n);
+        let l = Math.log10(S) + (2.5*n/z*Math.log10(z));
+
+        console.log('f', f, 'p', l);
+        let hl = Math.log10(Math.log(2))-Math.log10(f)-l;
+
+        return hl + 17;
+//        let hl = Math.log(10)/(-f*Math.log(1-p));
+
+  //      return hl;
+        return interp(-34.51,255.48,6.66,4.86)(hl);
+//        return interp(-12.51, 277.48, 6.66, 4.859)(Math.log10(S * Math.pow(z, 2.5*n)));
+      }
+    },
+    {
       name: 'calcHalfLifeLog10',
       factory: function() {
         let n = this.n, z = this.z;
@@ -232,7 +253,7 @@ foam.CLASS({
     {
       name: 'error',
       factory: function() {
-        const error = Math.abs(this.halfLifeLog10-this.calcHalfLifeLog10);
+        const error = Math.abs(this.halfLifeLog10-this.calc2HalfLifeLog10);
         if ( error < 3 ) this.color = 'red';
         if ( error < 3 ) this.color = 'orange';
         if ( error < 2 ) this.color = 'yellow';
