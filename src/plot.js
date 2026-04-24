@@ -5,8 +5,8 @@
 //   yLabel: null            // if not provided, falls back to yName
 // }
 function createScatterPlot(id, rows, xName, yName, options = {}) {
-  const width   = 1200;
-  const height  = 1200;
+  const width   = 1000;
+  const height  = 1000;
   const padding = 50;
 
   // Default labels if not provided in options
@@ -114,6 +114,7 @@ function createScatterPlot(id, rows, xName, yName, options = {}) {
         ${o.nuclide}<br>
         N=${o.n}, Z=${o.z}<br>
         N-Z=${o.n - o.z}<br>
+        u=${o.u}, d=${o.d}, u-d=${o.u-o.d}, u/d=${(o.u/o.d).toFixed(2)}<br>
         Half-Life: ${o.halfLifeLog10.toFixed(3)}<br>
         ${xName}: ${o[xName].toFixed(2)}<br>
         ${yName}: ${o[yName].toFixed(2)}<br>

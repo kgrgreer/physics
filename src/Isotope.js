@@ -1,5 +1,7 @@
 const S = 9.5e-18;            // s⁻¹ from paper
-
+const Ssq = S * S;
+const c = 299792458;          // speed of light
+const v1fm = 4.77e22; // c/(2π × 1fm) ≈ 4.775 × 10²²
 
 function interp(s1, e1, s2, e2) {
   return function(v) {
@@ -154,6 +156,21 @@ foam.CLASS({
     },
 
     {
+      name: 'u',
+      factory: function() { return 2 * this.z + this.n; }
+    },
+
+    {
+      name: 'd',
+      factory: function() { return this.z + 2 * this.n; }
+    },
+
+    {
+      name: 'ud',
+      factory: function() { return this.u - this.d; }
+    },
+
+    {
       name: 'beta_exposure',
       factory: function() {
         const nzRatio           = this.n / this.z;
@@ -188,7 +205,7 @@ foam.CLASS({
       name: 'calcHalfLifeLog10',
       factory: function() {
         let n = this.n, z = this.z;
-        this.color = 'red';
+//        this.color = 'red';
 //        if ( n > 126 && n < 133 && z > 83) { this.color='black'; } //else if ( n > 82 ) { z -= 3; }
         const log10Z = Math.log10(z);
         let hl=           (( n > 126 &&  n < 133 && z > 83) ? -3 : 0) +
@@ -202,7 +219,7 @@ foam.CLASS({
 
 //        this.color = '#fff0';
         if ( this.beta_exposure > 0.1 ) {
-          this.color = 'black';
+  //        this.color = 'black';
         }
         if ( n-z == 1 ) {
           bonus = -1;
@@ -219,10 +236,10 @@ foam.CLASS({
         } else if ( n >= 127 && n < 135 ) {
           if ( this.beta_exposure < 0 ) {
             bonus = -3;
-          this.color = 'lime';
+//          this.color = 'lime';
           } else {
             bonus += 1;
-          this.color = 'white';
+  //        this.color = 'white';
           }
         }
 
@@ -231,6 +248,14 @@ foam.CLASS({
         if ( hl > 0) hl = Math.pow(hl, 1.2)/1.3;
 
         return hl -0.6;
+      }
+    },
+
+      {
+      name: 'calc3HalfLifeLog10',
+      factory: function() {
+        let n = this.n, z = this.z;
+        return (2*Math.log10(S) + Math.log10(v1fm) - (n-1) * Math.log10(z))/Math.pow(10, 2*Math.E/Math.PI)+Math.log10(c);
       }
     },
 
@@ -253,7 +278,7 @@ foam.CLASS({
     {
       name: 'error',
       factory: function() {
-        const error = Math.abs(this.halfLifeLog10-this.calc2HalfLifeLog10);
+        const error = Math.abs(this.halfLifeLog10-this.calcHalfLifeLog10);
         if ( error < 3 ) this.color = 'red';
         if ( error < 3 ) this.color = 'orange';
         if ( error < 2 ) this.color = 'yellow';
