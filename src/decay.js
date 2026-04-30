@@ -108,17 +108,17 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
   const bMinusData = data.filter(o => o.decayModes.startsWith('B-'));
   const ecLikeData = data.filter(o => o.decayModes.indexOf('B-') == -1/* && o.beta_exposure < 3*/);
 
-const data2 = ecLikeData.filter(e => e.decayModes=='EC=100' && isFinite(e.calc3HalfLifeLog10))
+  const data2 = data.filter(e => e.decayModes=='EC=100'/* || e.decayModes=='B-=100'*/)
 //  const data2 = ecLikeData;
-  createScatterPlot('graph0', data2, 'calc3HalfLifeLog10', 'halfLifeLog10', {
+  createScatterPlot('graph0', data.filter(e => e.decayModes.indexOf('A') == -1 && e.decayModes == 'B+=100' ), 'calc3HalfLifeLog10', 'halfLifeLog10', {
     title: 'Calc2 HL',
-    squareAspect: true,
+    squareAspect: false,
     pointRenderer: nMinusZPointRenderer
   });
 
   // return;
 
-  createScatterPlot('graph0', data, 'calcHalfLifeLog10', 'halfLifeLog10', {
+  createScatterPlot('graph0', data.filter(e => e.decayModes.indexOf('A') == -1 ), 'calcHalfLifeLog10', 'halfLifeLog10', {
     title: 'Calc HL',
     squareAspect: true,
     pointRenderer: nMinusZPointRenderer
@@ -128,7 +128,22 @@ const data2 = ecLikeData.filter(e => e.decayModes=='EC=100' && isFinite(e.calc3H
 
   createScatterPlot('graph0', data, 'n', 'z', { pointRenderer: pointRenderer, customizeSVG: drawMagicLines});
 
-    createScatterPlot('graph0', data, 'u', 'd', { squareAspect: false, pointRenderer: pointRenderer, customizeSVG: drawMagicLines});
+  createScatterPlot('graph0', data, 'n', 'z', { pointRenderer: function(x,y,o,i) {
+    var color = o.decayModes == 'B-=100' ? 'red' : o.decayModes == 'A=100' ? 'blue' : o.decayModes == 'B+=100' ? 'pink' : o.decayModes == 'EC=100' ? 'black' : 'green';
+    if ( o.decayModes.indexOf('A') != -1 ) color = 'white';
+    return `<circle cx="${x}" cy="${y}" r="4" fill="${color}" stroke="#222" stroke-width="0.3" data-id="${i}"/>`;
+
+  }, customizeSVG: drawMagicLines});
+
+
+  createScatterPlot('graph0', data, 'z', 'nMinusZ', { pointRenderer: pointRenderer, pointRenderer2: function(x,y,o,i) {
+    var color = o.decayModes == 'B-=100' ? 'red' : o.decayModes == 'A=100' ? 'blue' : o.decayModes == 'B+=100' ? 'pink' : o.decayModes == 'EC=100' ? 'black' : 'gray';
+    if ( o.decayModes.indexOf('A') != -1 ) color = 'white';
+    return `<circle cx="${x}" cy="${y}" r="4" fill="${color}" stroke="#222" stroke-width="0.3" data-id="${i}"/>`;
+
+  }, customizeSVG: drawMagicLines});
+
+    createScatterPlot('graph0', data, 'u', 'd', { squareAspect: truev, pointRenderer: pointRenderer, customizeSVG: drawMagicLines});
 
 //  return;
   createScatterPlot('graph0', bMinusData, 'beta_exposure', 'halfLifeLog10', { pointRenderer: exposureRenderer, squareAspect: true });
@@ -160,7 +175,7 @@ const data2 = ecLikeData.filter(e => e.decayModes=='EC=100' && isFinite(e.calc3H
 
   createScatterPlot('graph0', data.filter(o => o.decayModes.startsWith('B-')), 'n', 'z');
 
-  document.getElementById('table').innerHTML = foam.TableView(data2, ['nuclide', 'a', 'n', 'z', 'decayModes', 't', 'unit', 'halfLifeLog10', 'calcHalfLifeLog10', 'calc2HalfLifeLog10', 'u','d','ud','error']);
+//  document.getElementById('table').innerHTML = foam.TableView(data, ['nuclide', 'a', 'n', 'z', 'decayModes', 't', 'unit', 'halfLifeLog10', 'calcHalfLifeLog10', 'calc2HalfLifeLog10', 'u','d','ud','error']);
 
   function avg(data, p) {
     let sum = 0;

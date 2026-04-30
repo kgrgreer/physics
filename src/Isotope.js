@@ -10,6 +10,47 @@ function interp(s1, e1, s2, e2) {
   }
 }
 
+function log10Sum(log10A, log10B) {
+    const max = Math.max(log10A, log10B);
+    const min = Math.min(log10A, log10B);
+
+    // We use the identity: log10(a + b) = max + log10(1 + 10^(min - max))
+    // To maintain precision, convert to natural logs for Math.log1p
+    const diff = min - max;
+
+    // 10^diff converted to e base is: Math.exp(diff * Math.LN10)
+    const inner = Math.exp(diff * Math.LN10);
+
+    // log10(1 + inner) is Math.log1p(inner) / Math.LN10
+    return max + (Math.log1p(inner) / Math.LN10);
+}
+
+function L(z) {
+  // Valley of stability: stable N for a given Z
+  // From nuclear force balance: Coulomb vs asymmetry energy
+  // N_valley = Z * (1 + a_C/(4*a_A) * Z^(2/3)) / (1 - a_C/(8*a_A) * Z^(2/3))
+  // With a_C ≈ 0.714 MeV, a_A ≈ 23.2 MeV
+
+  const aC = 0.714;
+  const aA = 23.2;
+  const ratio = aC / (4 * aA);
+
+  const nValley = z * (1 + ratio * Math.pow(z, 2/3)) /
+                      (1 - ratio * Math.pow(z, 2/3) / 2);
+
+  return nValley - 1;
+}
+/*
+function L(z) {
+  // From Coulomb/asymmetry energy ratio only
+  return z + 0.006 * Math.pow(z, 5/3) - 1;
+}*/
+/*
+function L(z) {
+  // Simple empirical valley fit
+  return z * (1 + 0.00434 * z) - 1;
+  }
+  */
 
 foam.CLASS({
   name: 'Isotope',
@@ -251,11 +292,62 @@ foam.CLASS({
       }
     },
 
-      {
+    {
+      name: 'denominator',
+      factory: function() {
+        let n = this.n, z = this.z;
+//         return n-L(z);
+    //    return Math.log10(z) * Math.abs(n-L(z)) * 2.5*5;
+        return 2.5*2*(n)*Math.log10(z);
+      }
+    },
+    {
+      name: 'dLz',
+      factory: function() { return this.n-L(this.z); }
+    },
+    {
+      name: 'nMinusZ',
+      factory: function() { return this.n-this.z; }
+    },
+    {
+      name: 'nPlusZ',
+      factory: function() { return this.n+this.z; }
+    },
+    {
       name: 'calc3HalfLifeLog10',
       factory: function() {
         let n = this.n, z = this.z;
-        return (2*Math.log10(S) + Math.log10(v1fm) - (n-1) * Math.log10(z))/Math.pow(10, 2*Math.E/Math.PI)+Math.log10(c);
+        this.color = 'red';
+        if ( this.decayModes.indexOf('B-') != -1 ) this.color = 'blue';
+        // if ( n > 125 && n < 134 && z > 83 ) this.color = 'green';
+
+        let p = this.denominator;
+
+        this.debug = 'denominator: ' + p;
+
+        let hl = (2*Math.log10(S) + Math.log10(v1fm) - p)/Math.pow(10, 2*Math.E/Math.PI)+Math.log10(c);
+        let bonus = 0;
+        if ( n-z == 1 ) {
+          bonus = -1;
+        } else if ( n-z == -1 ) {
+          bonus = -3.5;
+        } else if ( n-z == -1 || n-z == -2 || n-z == -3 || n-z == -4 ) {
+          bonus = -4;
+        } else if ( n == z && this.beta_exposure < 0 && n % 2 == 0 ) {
+          bonus = -1;
+        } else if ( n == z && this.beta_exposure < 0 && n % 2 == 1 ) {
+          bonus = -4;
+        }
+        if ( n-z == -1 ) { this.color = 'brown'; bonus -= 2.5; }
+        if ( n-z <= -5 && n-z > -9 ) { this.color = 'pink'; bonus -= 7; }
+        if ( n-z <= -2 && n-z >= -4 ) { this.color = 'purple'; bonus -= 2; }
+        if ( n-z >= 38 && n-z <= 42 ) { this.color = 'black'; }
+
+        if ( n > 125 && n < 134 && z > 83 ) bonus -= 7;
+
+        this.color = this.decayModes == 'B+=100' ? 'red' : 'blue';
+        hl += interp(40, 0, 18, 2)(n-z)-Math.PI/2 ;
+        return hl+bonus;
       }
     },
 
@@ -271,18 +363,15 @@ foam.CLASS({
     },
 
     {
-      name: 'nMinusZ',
-      factory: function() { return this.n - this.z; }
-    },
-
-    {
       name: 'error',
       factory: function() {
         const error = Math.abs(this.halfLifeLog10-this.calcHalfLifeLog10);
+        /*
         if ( error < 3 ) this.color = 'red';
         if ( error < 3 ) this.color = 'orange';
         if ( error < 2 ) this.color = 'yellow';
         if ( error < 1 ) this.color = 'green';
+        */
         return error;
       }
     }
