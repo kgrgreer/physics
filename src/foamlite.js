@@ -1,14 +1,27 @@
 foam = {
   CLASS: function(model) {
 
-    globalThis[model.name] = function(str) {
+    globalThis[model.name] = function(c) {
       var o = { model_: model };
 
+      if ( typeof c === 'string' ) {
+        let str = c;
+        model.properties.forEach(p => {
+          if ( p.start ) {
+            var subStr = str.slice(p.start-1, p.end).trim();
+            o[p.name] = { Int: parseInt, Float: parseFloat, String: s => s }[p.class || 'String'](subStr);
+          }
+        })
+      } else if ( typeof c === 'object' ) {
+        model.properties.forEach(p => {
+          if ( c.hasOwnProperty(p.name) ) {
+            o[p.name] = c[p.name];
+          }
+        });
+      }
+
       model.properties.forEach(p => {
-        if ( p.start ) {
-          var subStr = str.slice(p.start-1, p.end).trim();
-          o[p.name] = { Int: parseInt, Float: parseFloat, String: s => s }[p.class || 'String'](subStr);
-        } else if ( p.factory ) {
+        if ( p.factory ) {
           o[p.name] = p.factory.call(o);
         }
       });
