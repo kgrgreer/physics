@@ -231,7 +231,7 @@ foam.CLASS({
 //        let p = S * Math.pow(z, 2.5*n);
         let l = Math.log10(S) + (2.5*n/z*Math.log10(z));
 
-        console.log('f', f, 'p', l);
+//        console.log('f', f, 'p', l);
         let hl = Math.log10(Math.log(2))-Math.log10(f)-l;
 
         return hl + 17;
@@ -296,8 +296,6 @@ foam.CLASS({
       name: 'denominator',
       factory: function() {
         let n = this.n, z = this.z;
-//         return n-L(z);
-    //    return Math.log10(z) * Math.abs(n-L(z)) * 2.5*5;
         return 2.5*2*(n)*Math.log10(z);
       }
     },
@@ -351,6 +349,14 @@ foam.CLASS({
       }
     },
 
+    {
+      name: 'calc4HalfLifeLog10',
+      factory: function() {
+        let n = this.n, z = this.z;
+        return Math.log10(611);
+      }
+    },
+
     // B⁻ half-life predictor (pure geometry, no Q)
     {
       name: 'calcHalfLifeLog10_Bminus',
@@ -365,7 +371,7 @@ foam.CLASS({
     {
       name: 'error',
       factory: function() {
-        const error = Math.abs(this.halfLifeLog10-this.calcHalfLifeLog10);
+        const error = this.halfLifeLog10-this.calc4HalfLifeLog10;
         /*
         if ( error < 3 ) this.color = 'red';
         if ( error < 3 ) this.color = 'orange';
@@ -374,6 +380,24 @@ foam.CLASS({
         */
         return error;
       }
+    },
+
+    {
+      name: 'error4',
+      factory: function() {
+        const error = this.halfLifeLog10-this.calc4HalfLifeLog10;
+        /*
+        if ( error < 3 ) this.color = 'red';
+        if ( error < 3 ) this.color = 'orange';
+        if ( error < 2 ) this.color = 'yellow';
+        if ( error < 1 ) this.color = 'green';
+        */
+        return error;
+      }
+    },
+    {
+      name: 'cc',
+      factory: function() { return 611 + 100*Math.pow(this.u/(this.d+this.u),2); /*return this.n/(this.z+1);*/ }
     }
 
   ]
