@@ -52,8 +52,9 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 ''
   function pointRenderer(x, y, o, i) {
     const s = 255-255*(o.halfLifeLog10+8)/16;
-    const color = `rgb(${0},${s},${0})`;
-    return `<circle cx="${x}" cy="${y}" r="4" fill="${color}" stroke="#222" stroke-width="0.3" data-id="${i}"/>`;
+    let color = `rgb(${0},${s},${0})`;
+    if ( o.halfLifeLog10 > 1.9 && o.halfLifeLog10 < 3.5 ) color = 'red';
+    return `<circle cx="${x}" cy="${y}" r="2" fill="${color}" stroke="#222" stroke-width="0.3" data-id="${i}"/>`;
   }
 
   function nMinusZPointRenderer(x, y, o, i) {
@@ -108,11 +109,28 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
   const bMinusData = data.filter(o => o.decayModes.startsWith('B-'));
   const ecLikeData = data.filter(o => o.decayModes.indexOf('B-') == -1/* && o.beta_exposure < 3*/);
 
+
+  //  const smallData = data.filter(e => e.z < 8);
+    const smallData = data.filter(e => e.decayModes == 'B-=100');
+
+//  smallData.push(Isotope({aEl: '0N', a: 1, i: '0', n: 1, z: 0, color: 'pink', t: 611, unit: 's', decayModes:'B-=100', element: '-', nuclide: 'N-0', r: 8 }));
+
+  createScatterPlot('graph0', smallData, 'calc4HalfLifeLog10', 'halfLifeLog10', {
+    title: 'Calc4 HL',
+    squareAspect: true
+  });
+
+  createScatterPlot('graph0', smallData, 'cc', 'error4', {
+    title: 'Calc4 Error',
+    squareAspect: false
+  });
+
+
   const data2 = data.filter(e => e.decayModes=='EC=100'/* || e.decayModes=='B-=100'*/)
 //  const data2 = ecLikeData;
   createScatterPlot('graph0', data.filter(e => e.decayModes.indexOf('A') == -1 && e.decayModes == 'B+=100' ), 'calc3HalfLifeLog10', 'halfLifeLog10', {
     title: 'Calc2 HL',
-    squareAspect: false,
+    squareAspect: true,
     pointRenderer: nMinusZPointRenderer
   });
 
@@ -143,7 +161,7 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 
   }, customizeSVG: drawMagicLines});
 
-    createScatterPlot('graph0', data, 'u', 'd', { squareAspect: truev, pointRenderer: pointRenderer, customizeSVG: drawMagicLines});
+    createScatterPlot('graph0', data, 'u', 'd', { squareAspect: true, pointRenderer: pointRenderer, customizeSVG: drawMagicLines});
 
 //  return;
   createScatterPlot('graph0', bMinusData, 'beta_exposure', 'halfLifeLog10', { pointRenderer: exposureRenderer, squareAspect: true });
