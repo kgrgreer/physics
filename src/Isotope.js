@@ -1,4 +1,4 @@
-const S = 9.5e-18;            // s⁻¹ from paper
+const S = 9.4e-18;            // s⁻¹ from paper
 const Ssq = S * S;
 const c = 299792458;          // speed of light
 const v1fm = 4.77e22; // c/(2π × 1fm) ≈ 4.775 × 10²²
@@ -353,7 +353,14 @@ foam.CLASS({
       name: 'calc4HalfLifeLog10',
       factory: function() {
         let n = this.n, z = this.z;
-        return Math.log10(611);
+
+        let f        = v1fm;
+        let p        = S*(2+Math.pow(n, Math.pow(0.5, n-z+1)));
+        let duration = 1/f;
+        let decay    = p/duration;
+        let hl       = c * 4 / 3 * Math.log(2)/decay;
+
+        return hl/n;
       }
     },
 
@@ -385,7 +392,7 @@ foam.CLASS({
     {
       name: 'error4',
       factory: function() {
-        const error = this.halfLifeLog10-this.calc4HalfLifeLog10;
+        const error = this.calc4HalfLifeLog10-this.halfLifeLog10;
         /*
         if ( error < 3 ) this.color = 'red';
         if ( error < 3 ) this.color = 'orange';
@@ -394,6 +401,10 @@ foam.CLASS({
         */
         return error;
       }
+    },
+    {
+      name: 'abserror4',
+      factory: function() { return Math.abs(this.error4); }
     },
     {
       name: 'cc',

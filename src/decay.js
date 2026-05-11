@@ -72,7 +72,18 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
     const isBeta = o.beta_exposure < 0.01;
     const stroke = isBeta ? 'green' : '#222';
     const strokeWidth = isBeta ? 3 : 0; // o.decayModes.indexOf('B-') == -1 ? '2' : '0';
-    return `<circle cx="${x}" cy="${y}" r="4" fill="${color}" stroke="${stroke}" stroke-width="${strokeWidth}" data-id="${i}"/>`;
+    return `<circle cx="${x}" cy="${y}" r="6" fill="${color}" stroke="${stroke}" stroke-width="${strokeWidth}" data-id="${i}"/>`;
+  }
+
+  function nMinusZRenderer(x, y, o, i) {
+    let nz = o.n-o.z;
+    let colors = [ 'red', 'green', 'gray', 'orange', 'blue', 'brown', 'violet', 'pink', 'black' ];
+    let color = colors[(nz+10)% colors.length];
+    let ccolor = o.n % 2 ? 'red' : 'blue';
+
+    let error = Math.abs(o.error4);
+    // color = error < 1 ? 'green' : error < 2 ? 'orange' : 'red';
+    return `<circle cx="${x}" cy="${y}" r="2" fill="${ccolor}" stroke="#222" stroke-width="0.3" data-id="${i}"/><text fill="${color}" x="${x}" y="${y}" font-size="8">${nz},${o.n}</text>`;
   }
 
   function magicRenderer(x, y, o, i) {
@@ -102,7 +113,6 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
     return svg;
   }
 
-
   //////////////////////////////////////////////////////////////////////////////
   //                                                                     Graphs
   //////////////////////////////////////////////////////////////////////////////
@@ -110,14 +120,39 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
   const ecLikeData = data.filter(o => o.decayModes.indexOf('B-') == -1/* && o.beta_exposure < 3*/);
 
 
+
   //  const smallData = data.filter(e => e.z < 8);
-    const smallData = data.filter(e => e.decayModes == 'B-=100');
+  const smallData = data.filter(e => e.decayModes === 'B+=100' && ( (e.n-e.z) >= 1 && (e.n-e.z) <= 15 ) && e.calc4HalfLifeLog10 < 40 /*&& e.n%2==1*/  /*|| e.decayModes == 'B+=100'*/);
+
+  let byNZ = [];
+  smallData.forEach(o => {
+    let nz = o.n-o.z;
+    (byNZ[nz] || (byNZ[nz] = [])).push(o);
+  });
+  const getAverage = (array) =>
+        array.reduce((sum, currentValue) => sum + currentValue, 0) / array.length;
+  byNZ = byNZ.map(a => {
+    a.sort(function(o1, o2) { Math.abs(o2.error4) - Math.abs(o1.error4); });
+    a = a.map(o => o.error4);
+    a = a.slice(0, Math.max(4, a.length-4));
+    return getAverage(a);
+  });
+  globalThis.byNZ = byNZ;
+
+  console.log('avg error:', getAverage(smallData.map(o => o.abserror4)));
 
 //  smallData.push(Isotope({aEl: '0N', a: 1, i: '0', n: 1, z: 0, color: 'pink', t: 611, unit: 's', decayModes:'B-=100', element: '-', nuclide: 'N-0', r: 8 }));
 
   createScatterPlot('graph0', smallData, 'calc4HalfLifeLog10', 'halfLifeLog10', {
     title: 'Calc4 HL',
-    squareAspect: true
+    squareAspect: true,
+    pointRenderer: nMinusZRenderer
+  });
+
+  createScatterPlot('graph0', smallData, 'nMinusZ', 'error4', {
+    title: 'Error X N-Z',
+    squareAspect: false,
+    pointRenderer: nMinusZRenderer
   });
 
   createScatterPlot('graph0', smallData, 'cc', 'error4', {
