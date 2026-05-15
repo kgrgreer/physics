@@ -158,7 +158,8 @@ foam.CLASS({
     {
       name: 'nMagic',
       factory: function() {
-        const n = this.n, abs = Math.abs;
+        const n = this.n, abs = function(a) { return a; }; //Math.abs;
+//        const n = this.n, abs = Math.abs;
         return Math.min(
           abs(n-2),
           abs(n-8),
@@ -175,7 +176,7 @@ foam.CLASS({
     {
       name: 'zMagic',
       factory: function() {
-        const z = this.z, abs = Math.abs;
+        const z = this.z, abs = function(a) { return a; }; //Math.abs;
         return Math.min(
           abs(z-2),
           abs(z-8),
@@ -354,16 +355,61 @@ foam.CLASS({
       factory: function() {
         let n = this.n, z = this.z;
 
+//        let f        = v1fm * z;
         let f        = v1fm;
-        let p        = S*(2+Math.pow(n, Math.pow(0.5, n-z+1)));
-        let duration = 1/f;
+        let p        = S*(2+Math.pow(n, Math.pow(0.5, n-z+1)))*z * interp(1,Math.sqrt(30), 1, 0.45)(Math.sqrt(n-z)); // (or n ?);
+ //       let p        = S*(2+Math.pow(n, Math.pow(0.5, n-z+1)))*z * Math.sqrt(n-z)/2;
+    //    if ( Number.isNaN(p) || p == 0) p = 1e-14;
+        console.log(p);
+          let duration = 1/f;
         let decay    = p/duration;
         let hl       = c * 4 / 3 * Math.log(2)/decay;
-
-        return hl/n;
+        if ( Number.isNaN(hl) ) debugger;
+        //return h1 - Math.E;
+        let oddEvenBonus = n % 2 ? -0.11 : .2; // 0.117/2;
+        return Math.pow(hl - 1.34*Math.E, Math.PI/2) + oddEvenBonus;// - (n-z)/40*6*(80-n)/20
       }
     },
 
+    {
+      name: 'pa',
+      factory: function() {
+        let n = this.n, z = this.z;
+        return 100000*(Math.pow(n, Math.pow(0.5, n-z+1))) * Math.pow(z,1/3);
+      }
+    },
+
+    {
+      name: 'xxxcalc4HalfLifeLog10',
+      factory: function() {
+        let n = this.n, z = this.z;
+
+        function calc(nz) {
+          let f        = v1fm * interp(1,Math.sqrt(30), 1, 0.45)(Math.sqrt(nz)); // (or n ?)
+          let pa       = (2+Math.pow(n, Math.pow(0.5, n-z+1)));
+          let pb       = (2+Math.pow(n, Math.pow(0.5, 86-n+z)));
+          let p        = S * (pa); //Math.max(pa,pb);
+//          let duration = 1/f;
+          let decay    = p*f; /// p/duration;
+          let hl       = c * 4 / 3 * Math.log(2)/decay;
+
+          // return -Math.E/2 + Math.pow(hl + 4*Math.E, Math.PI/2) || 2;
+          // return h1 - Math.E;
+          let oddEvenBonus = n % 2 ? -0.11 : .2; // 0.117/2;
+          return Math.pow(hl - 1.34*Math.E, Math.PI/2) + oddEvenBonus;// - (n-z)/40*6*(80-n)/20
+        }
+
+        let minError = 100000000000000, minValue = 0;
+        for ( let i = n-z-8 ; i <= n-z+8 ; i++ ) {
+          if ( i < 1 ) continue;
+          let value = calc(i);
+          let error = Math.abs(this.halfLifeLog10-value);
+          if ( error < minError ) { minError = error; minValue = value; this.nzOffset = n-z-i }
+        }
+        return calc(n-z);
+        return minValue;
+      }
+    },
     // B⁻ half-life predictor (pure geometry, no Q)
     {
       name: 'calcHalfLifeLog10_Bminus',
@@ -409,7 +455,12 @@ foam.CLASS({
     {
       name: 'cc',
       factory: function() { return 611 + 100*Math.pow(this.u/(this.d+this.u),2); /*return this.n/(this.z+1);*/ }
+    },
+    {
+      name: 'value',
+      factory: function() {
+        return Math.pow(this.z,3)/Math.pow(this.n,3);
+      }
     }
-
   ]
 });

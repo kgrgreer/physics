@@ -118,7 +118,6 @@ function createScatterPlot(id, rows, xName, yName, options = {}) {
         Half-Life: ${o.halfLifeLog10.toFixed(3)}<br>
         ${xName}: ${o[xName].toFixed(2)}<br>
         ${yName}: ${o[yName].toFixed(2)}<br>
-        Exposure: ${o.beta_exposure.toFixed(2)}<br>
         Mode: ${o.decayModes}<br>
         ${o.debug}
       `;

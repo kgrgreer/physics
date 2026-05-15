@@ -32,7 +32,7 @@ async function load(url, model) {
   const lines = text.split('\n');
   log(` done.\n`);
 
-  return lines.filter(l => ! l.startsWith('#')).map(l => model(l));
+  return lines.filter(l => ! l.startsWith('#') && l != '').map(l => model(l));
 }
 
 
@@ -83,7 +83,14 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 
     let error = Math.abs(o.error4);
     // color = error < 1 ? 'green' : error < 2 ? 'orange' : 'red';
-    return `<circle cx="${x}" cy="${y}" r="2" fill="${ccolor}" stroke="#222" stroke-width="0.3" data-id="${i}"/><text fill="${color}" x="${x}" y="${y}" font-size="8">${nz},${o.n}</text>`;
+    return `<circle cx="${x}" cy="${y}" r="2" fill="${ccolor}" stroke="#222" stroke-width="0.3" data-id="${i}"/><text fill="${color}" x="${x}" y="${y}" font-size="0">${nz},${o.n},${o.z}</text>`;
+  }
+
+  function offsetRenderer(x, y, o, i) {
+    let nzo = o.nzOffset;
+    let color = nzo == 0 ? 'black' : nzo > 0 ? 'green' : 'red';
+    color = o.abserror4 < 0.05 ? 'red' : 'gray';
+    return `<circle cx="${x}" cy="${y}" fill="${color}" r="2" data-id="${i}"/><text fill="${color}" x="${x}" y="${y}" font-size="6">${o.u},${o.d}</text>`;
   }
 
   function magicRenderer(x, y, o, i) {
@@ -122,8 +129,7 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 
 
   //  const smallData = data.filter(e => e.z < 8);
-  const smallData = data.filter(e => e.decayModes === 'B+=100' && ( (e.n-e.z) >= 1 && (e.n-e.z) <= 15 ) && e.calc4HalfLifeLog10 < 40 /*&& e.n%2==1*/  /*|| e.decayModes == 'B+=100'*/);
-
+  let smallData = data.filter(e => e.n != 0 /*&& (e.n-e.z) % 10 == 1 */ &&  e.decayModes == 'B+=100' && ( (e.n-e.z) >= 9 && (e.n-e.z) <= 250 ) && e.n<130 /*&& e.n%2==1 */ /*|| e.decayModes == 'B+=100'*/);
   let byNZ = [];
   smallData.forEach(o => {
     let nz = o.n-o.z;
@@ -140,14 +146,46 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
   globalThis.byNZ = byNZ;
 
   console.log('avg error:', getAverage(smallData.map(o => o.abserror4)));
+  console.log('avg odd error:', getAverage(smallData.filter(o => o.n %2).map(o => o.abserror4)));
+  console.log('avg even error:', getAverage(smallData.filter(o => o.n % 2 == 0).map(o => o.abserror4)));
 
 //  smallData.push(Isotope({aEl: '0N', a: 1, i: '0', n: 1, z: 0, color: 'pink', t: 611, unit: 's', decayModes:'B-=100', element: '-', nuclide: 'N-0', r: 8 }));
+
+
+
+  for ( let z = 4 ; z < 83 ; z++ )
+  createScatterPlot('graph0', data.filter(o => o.z == z), 'n', 'halfLifeLog10', {
+    title: 'HL X N Z=' + z,
+    squareAspect: true,
+    pointRenderer: nMinusZRenderer
+  });
+
 
   createScatterPlot('graph0', smallData, 'calc4HalfLifeLog10', 'halfLifeLog10', {
     title: 'Calc4 HL',
     squareAspect: true,
     pointRenderer: nMinusZRenderer
   });
+
+  createScatterPlot('graph0', smallData, 'pa', 'halfLifeLog10', {
+    title: 'Calc4 HL',
+    squareAspect: false,
+    pointRenderer: nMinusZRenderer
+  });
+
+  createScatterPlot('graph0', smallData, 'd', 'u', {
+    title: 'N X Z',
+    squareAspect: false,
+    pointRenderer: offsetRenderer,
+    customizeSVG: drawMagicLines
+  });
+
+  createScatterPlot('graph0', smallData, 'beta_exposure', 'abserror4',  {
+    title: 'NZ Offset',
+    squareAspect: false,
+    pointRenderer: nMinusZRenderer
+  });
+
 
   createScatterPlot('graph0', smallData, 'nMinusZ', 'error4', {
     title: 'Error X N-Z',
