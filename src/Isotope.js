@@ -459,7 +459,7 @@ foam.CLASS({
     {
       name: 'value',
       factory: function() {
-        return Math.pow(this.z,3)/Math.pow(this.n,3);
+        return this.z/this.n;
       }
     }
   ]

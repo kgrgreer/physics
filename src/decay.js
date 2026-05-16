@@ -152,7 +152,6 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 //  smallData.push(Isotope({aEl: '0N', a: 1, i: '0', n: 1, z: 0, color: 'pink', t: 611, unit: 's', decayModes:'B-=100', element: '-', nuclide: 'N-0', r: 8 }));
 
 
-
   for ( let z = 4 ; z < 83 ; z++ )
   createScatterPlot('graph0', data.filter(o => o.z == z), 'n', 'halfLifeLog10', {
     title: 'HL X N Z=' + z,
