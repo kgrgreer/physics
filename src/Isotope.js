@@ -1,4 +1,4 @@
-const S = 9.4e-18;            // s⁻¹ from paper
+const S = 9.47e-18;            // s⁻¹ from paper
 const Ssq = S * S;
 const c = 299792458;          // speed of light
 const v1fm = 4.77e22; // c/(2π × 1fm) ≈ 4.775 × 10²²
@@ -418,6 +418,32 @@ foam.CLASS({
         // Base scaling is π/2 from nuclear diameter exposure (your fitted -1.56 ≈ -π/2)
         return 18.5 - (Math.PI / 2) * Math.log10(this.z || 1) + 0.09 * exposure + interp(19,50,-20,-8)(this.z)
         // 18.5 is the intercept (tuned once on the large dataset)
+      }
+    },
+
+
+    {
+      name: 'calc5HalfLifeLog10_Bminus',
+      factory: function() {
+        let n = this.n, z = this.z;
+
+        // (4 ⁄ 3) π has units m^3/m? Since it is converting from 3d volume to 1d distance?
+        const fm   = 1e-15;
+        const v1fm = c/(2*Math.PI * fm);
+        let f      = v1fm * Math.PI; // straight line vs cirular motion
+        let p      = 3/(4*Math.PI) * S / c;
+        // let decay = f * p;
+  //      let decay  = 3 * S / ( 2 * 4 * Math.PI * fm );
+        let decay = v1fm*Math.PI/c * (3 / (4 )) * S;
+        decay = 3 * S / ( 8 * Math.PI * fm );
+        let hl     = Math.log(2)/decay;
+
+//        hl = 2 * 4 * Math.PI * Math.log(2) * fm / (3 * S);
+
+        debugger;
+        // hl = 613.36 with S = 9.47e-18, 611.42 with S = 9.5e-18
+
+        return hl;
       }
     },
 

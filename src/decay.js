@@ -49,7 +49,7 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
  //   .filter(o => o.halfLifeLog10 < 8); // Long (unreliable) half-lives
 
   log(`Keeping ${data.length} isotopes.\n`);
-''
+
   function pointRenderer(x, y, o, i) {
     const s = 255-255*(o.halfLifeLog10+8)/16;
     let color = `rgb(${0},${s},${0})`;
@@ -151,16 +151,24 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 
 //  smallData.push(Isotope({aEl: '0N', a: 1, i: '0', n: 1, z: 0, color: 'pink', t: 611, unit: 's', decayModes:'B-=100', element: '-', nuclide: 'N-0', r: 8 }));
 
+  /*
 
   for ( let z = 4 ; z < 83 ; z++ )
   createScatterPlot('graph0', data.filter(o => o.z == z), 'n', 'halfLifeLog10', {
     title: 'HL X N Z=' + z,
     squareAspect: true,
     pointRenderer: nMinusZRenderer
+    });
+    */
+
+
+  createScatterPlot('graph0', data.filter(o => o.n < 21), 'n', 'halfLifeLog10', {
+    title: 'Calc4 HL',
+    squareAspect: true,
+    xxxpointRenderer: nMinusZRenderer
   });
 
-
-  createScatterPlot('graph0', smallData, 'calc4HalfLifeLog10', 'halfLifeLog10', {
+  createScatterPlot('graph0', smallData, 'calc5HalfLifeLog10', 'halfLifeLog10', {
     title: 'Calc4 HL',
     squareAspect: true,
     pointRenderer: nMinusZRenderer
