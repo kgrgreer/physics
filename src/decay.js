@@ -129,7 +129,7 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 
 
   //  const smallData = data.filter(e => e.z < 8);
-  let smallData = data.filter(e => e.n != 0 /*&& (e.n-e.z) % 10 == 1 */ &&  e.decayModes == 'B+=100' && ( (e.n-e.z) >= 9 && (e.n-e.z) <= 250 ) && e.n<130 /*&& e.n%2==1 */ /*|| e.decayModes == 'B+=100'*/);
+  let smallData = data.filter(e => (e.nMinusZ >-2 && e.nMinusZ < 0 ) /*&& e.n % 2 == 0*//*&& (e.n-e.z) % 10 == 1 */ &&  e.decayModes == 'B+=100' && e.n<130 /*&& e.n%2==1 */ /*|| e.decayModes == 'B+=100'*/);
   let byNZ = [];
   smallData.forEach(o => {
     let nz = o.n-o.z;
@@ -145,9 +145,9 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
   });
   globalThis.byNZ = byNZ;
 
-  console.log('avg error:', getAverage(smallData.map(o => o.abserror4)));
-  console.log('avg odd error:', getAverage(smallData.filter(o => o.n %2).map(o => o.abserror4)));
-  console.log('avg even error:', getAverage(smallData.filter(o => o.n % 2 == 0).map(o => o.abserror4)));
+  console.log('avg error:', getAverage(smallData.map(o => o.abserror5)));
+  console.log('avg odd error:', getAverage(smallData.filter(o => o.n %2).map(o => o.abserror5)));
+  console.log('avg even error:', getAverage(smallData.filter(o => o.n % 2 == 0).map(o => o.abserror5)));
 
 //  smallData.push(Isotope({aEl: '0N', a: 1, i: '0', n: 1, z: 0, color: 'pink', t: 611, unit: 's', decayModes:'B-=100', element: '-', nuclide: 'N-0', r: 8 }));
 
@@ -162,16 +162,18 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
     */
 
 
+  /*
   createScatterPlot('graph0', data.filter(o => o.n < 21), 'n', 'halfLifeLog10', {
     title: 'Calc4 HL',
     squareAspect: true,
     xxxpointRenderer: nMinusZRenderer
-  });
+    });
+    */
 
   createScatterPlot('graph0', smallData, 'calc5HalfLifeLog10', 'halfLifeLog10', {
     title: 'Calc4 HL',
     squareAspect: true,
-    pointRenderer: nMinusZRenderer
+    xxxpointRenderer: nMinusZRenderer
   });
 
   createScatterPlot('graph0', smallData, 'pa', 'halfLifeLog10', {

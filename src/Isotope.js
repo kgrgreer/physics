@@ -360,7 +360,7 @@ foam.CLASS({
         let p        = S*(2+Math.pow(n, Math.pow(0.5, n-z+1)))*z * interp(1,Math.sqrt(30), 1, 0.45)(Math.sqrt(n-z)); // (or n ?);
  //       let p        = S*(2+Math.pow(n, Math.pow(0.5, n-z+1)))*z * Math.sqrt(n-z)/2;
     //    if ( Number.isNaN(p) || p == 0) p = 1e-14;
-        console.log(p);
+        // console.log(p);
           let duration = 1/f;
         let decay    = p/duration;
         let hl       = c * 4 / 3 * Math.log(2)/decay;
@@ -423,12 +423,23 @@ foam.CLASS({
 
 
     {
-      name: 'calc5HalfLifeLog10_Bminus',
+      name: 'calc5HalfLifeLog10',
       factory: function() {
         let n = this.n, z = this.z;
 
+        const fm    = 1e-15;
+        let   f     = 1/fm;
+        let   p     = 3 * S / ( 8 * Math.PI );
+
+        //        p = Math.pow(p, 1-n);
+        p = 3 * Math.pow(S, (8-Math.pow(n*10,0.5 ))/(2.5*8*Math.PI)+z-n)/ ( 8 * Math.PI );
+        f *= n;
+        let   decay = f * p;
+        let   hl    = Math.log(2)/decay;
+
+        return Math.log10(hl);
+        /*
         // (4 ⁄ 3) π has units m^3/m? Since it is converting from 3d volume to 1d distance?
-        const fm   = 1e-15;
         const v1fm = c/(2*Math.PI * fm);
         let f      = v1fm * Math.PI; // straight line vs cirular motion
         let p      = 3/(4*Math.PI) * S / c;
@@ -442,8 +453,7 @@ foam.CLASS({
 
         debugger;
         // hl = 613.36 with S = 9.47e-18, 611.42 with S = 9.5e-18
-
-        return hl;
+        */
       }
     },
 
@@ -479,6 +489,23 @@ foam.CLASS({
       factory: function() { return Math.abs(this.error4); }
     },
     {
+      name: 'error5',
+      factory: function() {
+        const error = this.calc5HalfLifeLog10-this.halfLifeLog10;
+        /*
+        if ( error < 3 ) this.color = 'red';
+        if ( error < 3 ) this.color = 'orange';
+        if ( error < 2 ) this.color = 'yellow';
+        if ( error < 1 ) this.color = 'green';
+        */
+        return error;
+      }
+    },
+    {
+      name: 'abserror5',
+      factory: function() { return Math.abs(this.error5); }
+    },
+    {
       name: 'cc',
       factory: function() { return 611 + 100*Math.pow(this.u/(this.d+this.u),2); /*return this.n/(this.z+1);*/ }
     },
@@ -486,6 +513,14 @@ foam.CLASS({
       name: 'value',
       factory: function() {
         return this.z/this.n;
+      }
+    },
+    {
+      name: 'color',
+      factory: function() {
+        let n = this.n;
+
+        return n <= 2 ? 'red' : n <= 8 ? 'orange' : n <= 20 ? 'green' : n <= 28 ? 'blue' : 'violet';
       }
     }
   ]
