@@ -3,6 +3,11 @@ const Ssq = S * S;
 const c = 299792458;          // speed of light
 const v1fm = 4.77e22; // c/(2π × 1fm) ≈ 4.775 × 10²²
 
+function fact(n) { var r = 1; while ( n > 0 ) r *= n--; return r; }
+function P(n, r) { return fact(n) / fact(n-r); }
+function C(n, r) { return P(n, r) / fact(r); }
+
+
 function interp(s1, e1, s2, e2) {
   return function(v) {
     var p = (v - s1) / (e1 - s1);
@@ -364,7 +369,6 @@ foam.CLASS({
           let duration = 1/f;
         let decay    = p/duration;
         let hl       = c * 4 / 3 * Math.log(2)/decay;
-        if ( Number.isNaN(hl) ) debugger;
         //return h1 - Math.E;
         let oddEvenBonus = n % 2 ? -0.11 : .2; // 0.117/2;
         return Math.pow(hl - 1.34*Math.E, Math.PI/2) + oddEvenBonus;// - (n-z)/40*6*(80-n)/20
@@ -429,15 +433,21 @@ foam.CLASS({
 
         const fm    = 1e-15;
         let   f     = 1/fm;
-        let   p     = 3 * S / ( 8 * Math.PI );
+//        let   p     = 1-Math.pow(1-S, z-n);
+        //        let   p     = 1-Math.exp(Math.log(1-S)*Math.log(n));
+        let p = Math.pow(S, 0.7);
 
+  //      p = 3 * S / ( 8 * Math.PI );
         //        p = Math.pow(p, 1-n);
-        p = 3 * Math.pow(S, (8-Math.pow(n*10,0.5 ))/(2.5*8*Math.PI)+z-n)/ ( 8 * Math.PI );
-        f *= n;
+   //     p = 3 * Math.pow(S, (Math.pow(z, 0.5)))/ ( 8 * Math.PI );
+//        p = 3 * Math.pow(S, -Math.pow(n/2.5,0.5)) / ( 8 * Math.PI );
+        f /= n;
+
         let   decay = f * p;
         let   hl    = Math.log(2)/decay;
 
-        return Math.log10(hl);
+        return Number.isNaN(hl) ? 0 :hl;
+        return Math.log10(hl)-20-n/2+23-Math.pow(z,1/3)*10; //+interp(0.935, 0.959, 5, -3.6)(this.u/this.d);
         /*
         // (4 ⁄ 3) π has units m^3/m? Since it is converting from 3d volume to 1d distance?
         const v1fm = c/(2*Math.PI * fm);
@@ -520,7 +530,7 @@ foam.CLASS({
       factory: function() {
         let n = this.n;
 
-        return n <= 2 ? 'red' : n <= 8 ? 'orange' : n <= 20 ? 'green' : n <= 28 ? 'blue' : 'violet';
+        return n <= 2 ? 'red' : n <= 8 ? 'orange' : n <= 20 ? 'yellow' : n <= 28 ? 'green' : n <= 50 ? 'blue' : n <= 82 ? 'violet' : n <= 126 ? 'gray' : 'lime' ;
       }
     }
   ]

@@ -62,7 +62,7 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 
 //    const s = interp(20, 64, 0, 255)(o.nMinusZ);
     const color = o.color; // || b < 0.1 ? 'white' : `rgb(${255},0,0)`;
-    return `<circle cx="${x}" cy="${y}" r="4" fill="${color}" stroke="#222" stroke-width="0.3" data-id="${i}"/>`;
+    return `<circle cx="${x}" cy="${y}" r="3" fill="${color}" stroke="#222" stroke-width="0.3" data-id="${i}"/>`;
   }
 
   function exposureRenderer(x, y, o, i) {
@@ -129,7 +129,7 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 
 
   //  const smallData = data.filter(e => e.z < 8);
-  let smallData = data.filter(e => (e.nMinusZ >-2 && e.nMinusZ < 0 ) /*&& e.n % 2 == 0*//*&& (e.n-e.z) % 10 == 1 */ &&  e.decayModes == 'B+=100' && e.n<130 /*&& e.n%2==1 */ /*|| e.decayModes == 'B+=100'*/);
+  let smallData = data.filter(e => (e.z < 20) && e.z % 4 == 0); //*&& (e.n-e.z) % 10 == 1 */ &&  e.decayModes == 'B-=100' && e.n<130 /*&& e.n%2==1 */ /*|| e.decayModes == 'B+=100'*/);
   let byNZ = [];
   smallData.forEach(o => {
     let nz = o.n-o.z;
@@ -172,7 +172,7 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 
   createScatterPlot('graph0', smallData, 'calc5HalfLifeLog10', 'halfLifeLog10', {
     title: 'Calc4 HL',
-    squareAspect: true,
+    squareAspect: false,
     xxxpointRenderer: nMinusZRenderer
   });
 
