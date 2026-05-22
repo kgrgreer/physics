@@ -425,45 +425,33 @@ foam.CLASS({
       }
     },
 
+    {
+      name: 'stableN',
+      factory: function() {
+        let z = this.z;
+        return z + 0.006 * Math.pow(z, 2);
+      }
+    },
 
     {
       name: 'calc5HalfLifeLog10',
       factory: function() {
         let n = this.n, z = this.z;
 
-        const fm    = 1e-15;
-        let   f     = 1/fm;
-//        let   p     = 1-Math.pow(1-S, z-n);
-        //        let   p     = 1-Math.exp(Math.log(1-S)*Math.log(n));
-        let p = Math.pow(S, 0.7);
+        let fm  = 1e-15;
+        let f   = 1/fm;
+        let p   = 3 * S / ( 8 * Math.PI );              // Base Free Neutron formula
+        let pec = p / C(Math.pow(n, 0.9020413), z-14);  // Compensate for Electrons, n choose z, TODO: replace 14 with the stable Z formula
+        let per = p * C(Math.pow(n, 0.9020413), z);     // Compensate for Electrons, n choose z
+        let decay = f * (pec + per);
+        let hl    = Math.log(2)/decay;
 
-  //      p = 3 * S / ( 8 * Math.PI );
-        //        p = Math.pow(p, 1-n);
-   //     p = 3 * Math.pow(S, (Math.pow(z, 0.5)))/ ( 8 * Math.PI );
-//        p = 3 * Math.pow(S, -Math.pow(n/2.5,0.5)) / ( 8 * Math.PI );
-        f /= n;
+        return Math.log10(hl);
+//        p = p * this.stableN;
+ //       p = p * Math.pow(n, z);
+  //      p = p * Math.pow(this.stableN, Math.E/2);               // Compensate for Neutrons
+//        f = f * Math.pow(3*z/(8*Math.PI),1/20);
 
-        let   decay = f * p;
-        let   hl    = Math.log(2)/decay;
-
-        return Number.isNaN(hl) ? 0 :hl;
-        return Math.log10(hl)-20-n/2+23-Math.pow(z,1/3)*10; //+interp(0.935, 0.959, 5, -3.6)(this.u/this.d);
-        /*
-        // (4 ⁄ 3) π has units m^3/m? Since it is converting from 3d volume to 1d distance?
-        const v1fm = c/(2*Math.PI * fm);
-        let f      = v1fm * Math.PI; // straight line vs cirular motion
-        let p      = 3/(4*Math.PI) * S / c;
-        // let decay = f * p;
-  //      let decay  = 3 * S / ( 2 * 4 * Math.PI * fm );
-        let decay = v1fm*Math.PI/c * (3 / (4 )) * S;
-        decay = 3 * S / ( 8 * Math.PI * fm );
-        let hl     = Math.log(2)/decay;
-
-//        hl = 2 * 4 * Math.PI * Math.log(2) * fm / (3 * S);
-
-        debugger;
-        // hl = 613.36 with S = 9.47e-18, 611.42 with S = 9.5e-18
-        */
       }
     },
 
@@ -530,6 +518,7 @@ foam.CLASS({
       factory: function() {
         let n = this.n;
 
+        // return 'hsl(' + (this.z * 20 + (this.z % 2? 0: 180)) + ',' + 90 + '%,' + 50 + '%)';
         return n <= 2 ? 'red' : n <= 8 ? 'orange' : n <= 20 ? 'yellow' : n <= 28 ? 'green' : n <= 50 ? 'blue' : n <= 82 ? 'violet' : n <= 126 ? 'gray' : 'lime' ;
       }
     }
