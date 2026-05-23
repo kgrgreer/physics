@@ -4,6 +4,7 @@ const c      = 299792458;  // speed of light
 const v1fm   = 4.77e22;    // c/(2π × 1fm) ≈ 4.775 × 10²²
 const SLATER = 0.9020413;  // Slater's Rules for Multi-Electron Atoms (Shielding)
 const fm     = 1e-15;
+const PI     = Math.PI;
 
 
 function gamma(z) {
@@ -17,7 +18,7 @@ function fact(n) {
   var r = 1; while ( n > 0 ) r *= n--; return r;
 }
 function P(n, r) { return fact(n) / fact(n-r); }
-function C(n, r) { return P(n, r) / fact(r); }
+function C(n, r) { return r < 0 ? 1 : P(n, r) / fact(r); }
 
 
 function interp(s1, e1, s2, e2) {
@@ -306,7 +307,7 @@ foam.CLASS({
 
         if ( hl > 0) hl = Math.pow(hl, 1.2)/1.3;
 
-        return hl -0.6;
+        return (hl-0.6);
       }
     },
 
@@ -446,18 +447,38 @@ foam.CLASS({
     },
 
     {
+      name: 'stableZ',
+      factory: function() {
+        return this.z * ( 1 + 0.1526 * Math.pow(this.a, 2/3));
+      }
+    },
+
+    {
       name: 'calc5HalfLifeLog10',
       factory: function() {
         let n = this.n, z = this.z;
 
+        /*
+        if ( n > 127 ) {
+          n -= 6;
+          if ( n < 135 ) n -=4;
+          if ( z > 82 && z < 87 ) n-=4;
+          }
+          */
+       // elseif ( n > 127 ) n-=8;
+ //        else if ( n > 127 ) n-=12;
+//        else if ( z > 83 ) n-=16;
+
         let f     = 1/fm;
-        let p     = 3 * S / ( 8 * Math.PI );           // Base Free Neutron formula
-        let pec   = p / C(Math.pow(n, SLATER), z-12.6);// * Math.pow(n, -Math.PI*3)/S;  // Compensate for Electrons, n choose z, TODO: replace 14 with the stable Z formula
-        let per   = p * C(Math.pow(n, SLATER), z);// * Math.pow(n, -Math.PI*3)/S;     // Compensate for Electrons, n choose z
+        let p     = 3 * S / ( 8 * PI );           // Base Free Neutron formula
+        let pec   = p / C(Math.pow(n,   SLATER), z-PI*4);
+        let per   = p * C(Math.pow(n-1, SLATER), z);
         let decay = f * (pec + per);
         let hl    = Math.log(2)/decay;
-//        hl = Math.pow(hl, Math.E/2);
-        return Math.log10(hl)/n*this.stableN/Math.PI; // remove stability curve and adjust slope
+
+        hl = Math.pow(hl, 1/PI); // adjust slope by scaling surface-to-volume of hypersphere
+
+        return Math.log10(hl)/n*this.stableN; // remove valley of stability curve
 
 //        p = p * this.stableN;
  //       p = p * Math.pow(n, z);
@@ -531,7 +552,7 @@ foam.CLASS({
         let n = this.n;
 
         // return 'hsl(' + (this.z * 20 + (this.z % 2? 0: 180)) + ',' + 90 + '%,' + 50 + '%)';
-        return n <= 2 ? 'red' : n <= 8 ? 'orange' : n <= 20 ? 'yellow' : n <= 28 ? 'green' : n <= 50 ? 'blue' : n <= 82 ? 'violet' : n <= 126 ? 'gray' : 'lime' ;
+        return n <= 2 ? 'red' : n <= 8 ? 'orange' : n <= 20 ? 'yellow' : n <= 28 ? 'green' : n <= 50 ? 'blue' : n <= 82 ? 'violet' : n <= 126 ? 'gray' : n <= 184 ? 'lime' : 'black' ;
       }
     }
   ]
