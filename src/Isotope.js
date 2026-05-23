@@ -1,9 +1,21 @@
-const S = 9.47e-18;            // s⁻¹ from paper
-const Ssq = S * S;
-const c = 299792458;          // speed of light
-const v1fm = 4.77e22; // c/(2π × 1fm) ≈ 4.775 × 10²²
+const S      = 9.47e-18;   // s⁻¹ from paper
+const Ssq    = S * S;
+const c      = 299792458;  // speed of light
+const v1fm   = 4.77e22;    // c/(2π × 1fm) ≈ 4.775 × 10²²
+const SLATER = 0.9020413;  // Slater's Rules for Multi-Electron Atoms (Shielding)
+const fm     = 1e-15;
 
-function fact(n) { var r = 1; while ( n > 0 ) r *= n--; return r; }
+
+function gamma(z) {
+  return Math.sqrt(2 * Math.PI / z) * Math.pow((1 / Math.E) * (z + 1 / (12 * z - 1 / (10 * z))), z);
+}
+function fact(n) {
+  if ( ! Number.isInteger(n) ) {
+    let r = gamma(n+1);
+    if ( ! Number.isNaN(r) ) return r;
+  }
+  var r = 1; while ( n > 0 ) r *= n--; return r;
+}
 function P(n, r) { return fact(n) / fact(n-r); }
 function C(n, r) { return P(n, r) / fact(r); }
 
@@ -428,7 +440,7 @@ foam.CLASS({
     {
       name: 'stableN',
       factory: function() {
-        let z = this.z;
+        let z = this.n;
         return z + 0.006 * Math.pow(z, 2);
       }
     },
@@ -438,15 +450,15 @@ foam.CLASS({
       factory: function() {
         let n = this.n, z = this.z;
 
-        let fm  = 1e-15;
-        let f   = 1/fm;
-        let p   = 3 * S / ( 8 * Math.PI );              // Base Free Neutron formula
-        let pec = p / C(Math.pow(n, 0.9020413), z-14);  // Compensate for Electrons, n choose z, TODO: replace 14 with the stable Z formula
-        let per = p * C(Math.pow(n, 0.9020413), z);     // Compensate for Electrons, n choose z
+        let f     = 1/fm;
+        let p     = 3 * S / ( 8 * Math.PI );           // Base Free Neutron formula
+        let pec   = p / C(Math.pow(n, SLATER), z-12.6);// * Math.pow(n, -Math.PI*3)/S;  // Compensate for Electrons, n choose z, TODO: replace 14 with the stable Z formula
+        let per   = p * C(Math.pow(n, SLATER), z);// * Math.pow(n, -Math.PI*3)/S;     // Compensate for Electrons, n choose z
         let decay = f * (pec + per);
         let hl    = Math.log(2)/decay;
+//        hl = Math.pow(hl, Math.E/2);
+        return Math.log10(hl)/n*this.stableN/Math.PI; // remove stability curve and adjust slope
 
-        return Math.log10(hl);
 //        p = p * this.stableN;
  //       p = p * Math.pow(n, z);
   //      p = p * Math.pow(this.stableN, Math.E/2);               // Compensate for Neutrons

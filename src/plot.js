@@ -17,7 +17,7 @@ function createScatterPlot(id, rows, xName, yName, options = {}) {
   const yValues = rows.map(r => parseFloat(r[yName]));
 
   const pointRenderer = options?.pointRenderer || function(x, y, o, i) {
-    return `<circle cx="${x}" cy="${y}" r="4" fill="${o.color || 'red'}" stroke="#222" stroke-width="0.3" data-id="${i}"/>`;
+    return `<circle cx="${x}" cy="${y}" r="3" fill="${o.color || 'red'}" stroke="#222" stroke-width="0.3" data-id="${i}"/>`;
   };
   let dataMin, dataMax;
 
@@ -119,6 +119,7 @@ function createScatterPlot(id, rows, xName, yName, options = {}) {
         ${xName}: ${o[xName].toFixed(2)}<br>
         ${yName}: ${o[yName].toFixed(2)}<br>
         Mode: ${o.decayModes}<br>
+        StableN: ${o.stableN.toFixed(1)}<br>
         ${o.debug}
       `;
       //         Error: ${row[errorName].toFixed(2)} dex

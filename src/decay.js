@@ -133,7 +133,10 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 //  smallData = smallData.filter(e => e.decayModes === 'B-=100');
 //  smallData = smallData.filter(e => e.decayModes === 'B+=100');
 //  smallData = smallData.filter(e => e.decayModes === 'B+=100' || e.decayModes === 'B-=100');
-  smallData = smallData.filter(e => e.decayModes.indexOf('p') == -1 && e.decayModes.indexOf('A') == -1);
+  smallData = smallData.filter(e => e.decayModes.indexOf('p') == -1 && e.decayModes.indexOf('A') == -1 && e.decayModes.indexOf('SF') == -1 /*&& e.decayModes.indexOf('?') == -1*/ );
+//  smallData = smallData.filter(e => e.halfLifeLog10 < 4.5 && e.halfLifeLog10 > -3);
+//    smallData = smallData.filter(e => e.nMinusZ > 8);
+//   smallData = smallData.filter(e => e.halfLifeLog10 < 5);
 
   console.log('smallData size:', smallData.length);
 
@@ -176,6 +179,12 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
     xxxpointRenderer: nMinusZRenderer
     });
     */
+
+    createScatterPlot('graph0', smallData, 'n', 'stableN', {
+    title: 'Calc4 HL',
+    squareAspect: true,
+    xxxpointRenderer: nMinusZRenderer
+  });
 
   createScatterPlot('graph0', smallData, 'calc5HalfLifeLog10', 'halfLifeLog10', {
     title: 'Calc4 HL',
