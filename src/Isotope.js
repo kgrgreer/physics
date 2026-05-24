@@ -458,33 +458,40 @@ foam.CLASS({
       factory: function() {
         let n = this.n, z = this.z;
 
-        /*
-        if ( n > 127 ) {
-          n -= 6;
-          if ( n < 135 ) n -=4;
-          if ( z > 82 && z < 87 ) n-=4;
-          }
-          */
+       // if ( n > 127 ) {
+       //   n -= 6;
+        //  if ( n < 135 ) n -=4;
+        //  if ( z > 82 && z < 87 ) n-=4;
+       //   }
        // elseif ( n > 127 ) n-=8;
  //        else if ( n > 127 ) n-=12;
-//        else if ( z > 83 ) n-=16;
-
+        //        else if ( z > 83 ) n-=16;
         let f     = 1/fm;
-        let p     = 3 * S / ( 8 * PI );           // Base Free Neutron formula
-        let pec   = p / C(Math.pow(n,   SLATER), z-PI*4);
-        let per   = p * C(Math.pow(n-1, SLATER), z);
+        let p     = 3 * S / (8 * Math.PI);        // Base Free Neutron formula
+
+        // Electron Capture / B+ like
+        let pec   = p / C(Math.pow(n+1, SLATER), z - 4*PI);  // +1 improves by 1%
+
+        // Electron Release / B- like / Free Neutron
+        let per   = p * C(Math.pow(n-1, SLATER), z - PI/12); // -PI/12 improves by 1%, -1 improves by 4%
+
         let decay = f * (pec + per);
-        let hl    = Math.log(2)/decay;
+        let hl    = Math.log(2) / decay;
 
-        hl = Math.pow(hl, 1/PI); // adjust slope by scaling surface-to-volume of hypersphere
+    // or more geometrically:
+    // const shell_factor = Math.pow(n / 50, 0.25);     // surface-like scaling
 
-        return Math.log10(hl)/n*this.stableN; // remove valley of stability curve
 
-//        p = p * this.stableN;
- //       p = p * Math.pow(n, z);
-  //      p = p * Math.pow(this.stableN, Math.E/2);               // Compensate for Neutrons
-//        f = f * Math.pow(3*z/(8*Math.PI),1/20);
+        if ( this.n > 82  && this.n < 98) {
+          hl = Math.pow(hl, 1/Math.PI/1.4);             // hyperspherical surface-to-volume scaling
+        } else if ( this.n > 50 && this.n < 82 )  {
+          hl = Math.pow(hl, 1/Math.PI/1.2);             // hyperspherical surface-to-volume scaling
+        } else {
+          hl = Math.pow(hl, 1/Math.PI);             // hyperspherical surface-to-volume scaling
+        }
 
+        let adj = (n / this.stableN);
+        return Math.log10(hl) / adj;
       }
     },
 

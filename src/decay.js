@@ -134,12 +134,18 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 //  smallData = smallData.filter(e => e.decayModes === 'B+=100');
 //  smallData = smallData.filter(e => e.decayModes === 'B+=100' || e.decayModes === 'B-=100');
 //  smallData = smallData.filter(e => e.decayModes.indexOf('p') == -1 && e.decayModes.indexOf('A') == -1  && e.decayModes.indexOf('SF') == -1 /*&& e.decayModes.indexOf('?') == -1*/ );
-//  smallData = smallData.filter(e => e.halfLifeLog10 < 4.5 && e.halfLifeLog10 > -3);
+  smallData = smallData.filter(e => e.halfLifeLog10 < 4.7 && e.halfLifeLog10 > -3);
 //    smallData = smallData.filter(e => e.nMinusZ > 8);
 //   smallData = smallData.filter(e => e.halfLifeLog10 < 5);
 //  smallData = smallData.filter(e => e.decayModes == 'A=100');
   smallData = smallData.filter(e => e.decayModes.indexOf('A') == -1);
-//  smallData = smallData.filter(e => e.n < 127);
+  smallData = smallData.filter(e => e.n < 150);
+  smallData = smallData.filter(e => e.n > 5);
+//  smallData = smallData.filter(e => e.dt >3);
+//  smallData = smallData.filter(e => e.n == 80);
+//  smallData = smallData.filter(e => e.n%2 == 0);
+  smallData = smallData.filter(e => e.n-e.z > 9);
+//  smallData = smallData.filter(e => e.n != 70 && e.z != 70 && e.z != 60 && ( e.z >53 || e.z <50 ) && e.n != 82 && e.n != 25 && e.n != 132 && e.z != 15 && e.z != 50 && e.z != 68 && e.nMinusZ != 56 && e.n > 43);
   console.log('smallData size:', smallData.length);
 
   let byNZ = [];
@@ -157,9 +163,10 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
   });
   globalThis.byNZ = byNZ;
 
-  console.log('avg error:', getAverage(smallData.map(o => o.abserror5)));
-  console.log('avg odd error:', getAverage(smallData.filter(o => o.n %2).map(o => o.abserror5)));
-  console.log('avg even error:', getAverage(smallData.filter(o => o.n % 2 == 0).map(o => o.abserror5)));
+  let avgData = smallData;
+  console.log('avg error:', getAverage(avgData.map(o => o.abserror5)));
+  console.log('avg odd error:', getAverage(avgData.filter(o => o.n %2).map(o => o.abserror5)));
+  console.log('avg even error:', getAverage(avgData.filter(o => o.n % 2 == 0).map(o => o.abserror5)));
 
 //  smallData.push(Isotope({aEl: '0N', a: 1, i: '0', n: 1, z: 0, color: 'pink', t: 611, unit: 's', decayModes:'B-=100', element: '-', nuclide: 'N-0', r: 8 }));
 
@@ -294,8 +301,9 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 
   createScatterPlot('graph0', data.filter(o => o.decayModes.startsWith('B-')), 'n', 'z');
 
-//  document.getElementById('table').innerHTML = foam.TableView(data, ['nuclide', 'a', 'n', 'z', 'decayModes', 't', 'unit', 'halfLifeLog10', 'calcHalfLifeLog10', 'calc2HalfLifeLog10', 'u','d','ud','error']);
+  document.getElementById('table').innerHTML = foam.TableView(smallData, ['nuclide', 'a', 'n', 'z', 'decayModes', 't', 'unit', 'dt', 'halfLifeLog10', 'calcHalfLifeLog10', 'calc2HalfLifeLog10', 'u','d','ud','error']);
 
+  /*
   function avg(data, p) {
     let sum = 0;
     data.forEach(o => sum += o[p]);
@@ -305,4 +313,118 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
   data = data.filter(o => o.decayModes.indexOf('B-=') != -1);
   console.log('average even half-life log10:', avg(data.filter(o => o.z % 2 == 0), 'halfLifeLog10'));
   console.log('average odd  half-life log10:', avg(data.filter(o => o.z % 2 == 1), 'halfLifeLog10'));
+*/
+
+function seq(...a) {
+  return [ (m, o) => a.map((r, i) => r[0](m[i], o)), a.map(r => r[1]), m => m.map((n, i) => (a[i][2] || (x => x))(n)) ];
+}
+function mapM(m, f) {
+  let r = {};
+  Object.keys(m).forEach(k => r[k] = f(m[k]));
+  return r;
+}
+function mToA(m, f) {
+  return Object.keys(m).map((o, i) => f(m[o], o));
+}
+console.log('mapM', mapM);
+
+function avg(f) {
+  f = f || ( o => o);
+  return [ (m, o) => [m[0] + f(o), m[1]+1], [0,0], m => m[0] / m[1] ];
+}
+
+
+function sum(f) {
+  f = f || ( o => o);
+  return [ (m, o) => m + f(o), 0 ];
+}
+
+function count() {
+  return [ (m, o) => m + 1, 0 ];
+}
+
+
+function reduce(data, r) {
+  return (r[2] || (a => a))(data.reduce.apply(data, r));
+}
+function groupBy(f, r) {
+  return [
+    (m, o) => {
+      let k = f(o);
+      m = {...m};
+      m[k] = r[0](m[k] ?? r[1], o, k);
+      return m;
+    },
+    {},
+    r[2] && (m => mapM(m, a => r[2](a)))
+  ];
+}
+
+  console.log(reduce([1,2,3], sum(o => o)));
+  console.log(reduce([1,2,3], avg(o => o)));
+  console.log(reduce([1,2,3], seq(sum(), avg())));
+  console.log(reduce([1,2,3], avg(o => o)));
+  console.log(reduce([1,2,3,4,5], avg()));
+
+  console.log(reduce([1,2,3,4], groupBy(o => o<3, sum())));
+  console.log(reduce([1,2,3,4], groupBy(o => o<3, sum())));
+
+  console.log(reduce([1,2,3,4], groupBy(o => o<3, avg())));
+  console.log(reduce([1,2,3,4], groupBy(o => o<3, avg())));
+
+  console.log(reduce(smallData, groupBy(o => o.n, avg(o => o.error5))));
+  console.log(reduce(smallData, groupBy(o => o.n-o.z, avg(o => o.error5))));
+  console.log(reduce(smallData, groupBy(o => o.n-o.z, count())));
+
+  console.log('*********', reduce(data, avg(o => o.dt || 0)));
+  console.log('sum', reduce(data, count()));
+  console.log('sum2', reduce(data.filter(o => Math.abs(o.error5) < Math.log10(o.dt)), count()));
+
+  /*
+  let byNSlope = mToA(
+    reduce(smallData, groupBy(o => o.n, avg(a => a.halfLifeLog10/a.calc5HalfLifeLog10))),
+    (o, i) => { return { n: i, slope: o }; }
+    );
+    */
+  let byNSlope = mToA(
+    reduce(smallData, groupBy(o => o.n, seq(avg(a => a.halfLifeLog10), avg(a => a.calc5HalfLifeLog10)))),
+    (o, i) => { return { n: i, slope: o[0]/o[1] }; }
+  );
+  let slopes = [];
+  byNSlope.map(s => slopes[s.n] = s.slope);
+
+  console.log('slope:', slopes);
+
+  // big outliers: 25, 80*, 82, 132
+
+  createScatterPlot('graph0', byNSlope, 'n', 'slope', {
+    title: 'Slope X N',
+    squareAspect: false
+  });
+
+  // big outliers: 15, 50*, 68
+
+  let byZSlope = mToA(
+    reduce(smallData, groupBy(o => o.z, avg(a => a.halfLifeLog10/a.calc5HalfLifeLog10))),
+    (o, i) => { return { z: i, slope: o }; }
+  );
+
+  createScatterPlot('graph0', byZSlope, 'z', 'slope', {
+    title: 'Slope X Z',
+    squareAspect: false
+  });
+
+  // big outliers: 56
+
+  let byASlope = mToA(
+    reduce(smallData, groupBy(o => o.nMinusZ, avg(a => a.halfLifeLog10/a.calc5HalfLifeLog10))),
+    (o, i) => { return { nMinusZ: i, slope: o }; }
+  );
+
+  createScatterPlot('graph0', byASlope, 'nMinusZ', 'slope', {
+    title: 'Slope X N-Z',
+    squareAspect: false
+  });
+
+
 });
