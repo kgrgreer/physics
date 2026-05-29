@@ -134,17 +134,17 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 //  smallData = smallData.filter(e => e.decayModes === 'B+=100');
 //  smallData = smallData.filter(e => e.decayModes === 'B+=100' || e.decayModes === 'B-=100');
 //  smallData = smallData.filter(e => e.decayModes.indexOf('p') == -1 && e.decayModes.indexOf('A') == -1  && e.decayModes.indexOf('SF') == -1 /*&& e.decayModes.indexOf('?') == -1*/ );
-  smallData = smallData.filter(e => e.halfLifeLog10 < 4.7 && e.halfLifeLog10 > -3);
+ // smallData = smallData.filter(e => e.halfLifeLog10 < 4.7 && e.halfLifeLog10 > -3);
 //    smallData = smallData.filter(e => e.nMinusZ > 8);
 //   smallData = smallData.filter(e => e.halfLifeLog10 < 5);
 //  smallData = smallData.filter(e => e.decayModes == 'A=100');
   smallData = smallData.filter(e => e.decayModes.indexOf('A') == -1);
   smallData = smallData.filter(e => e.n < 150);
-  smallData = smallData.filter(e => e.n > 5);
+//  smallData = smallData.filter(e => e.n > 5);
 //  smallData = smallData.filter(e => e.dt >3);
 //  smallData = smallData.filter(e => e.n == 80);
 //  smallData = smallData.filter(e => e.n%2 == 0);
-  smallData = smallData.filter(e => e.n-e.z > 9);
+  smallData = smallData.filter(e => e.n-e.z > 5);
 //  smallData = smallData.filter(e => e.n != 70 && e.z != 70 && e.z != 60 && ( e.z >53 || e.z <50 ) && e.n != 82 && e.n != 25 && e.n != 132 && e.z != 15 && e.z != 50 && e.z != 68 && e.nMinusZ != 56 && e.n > 43);
   console.log('smallData size:', smallData.length);
 
@@ -191,6 +191,12 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 
 
   createScatterPlot('graph0', smallData, 'calc5HalfLifeLog10', 'halfLifeLog10', {
+    title: 'Calc4 HL',
+    squareAspect: true,
+    xxxpointRenderer: nMinusZRenderer
+  });
+
+  createScatterPlot('graph0', smallData, 'calc5b', 'halfLifeLog10', {
     title: 'Calc4 HL',
     squareAspect: true,
     xxxpointRenderer: nMinusZRenderer
@@ -301,7 +307,9 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 
   createScatterPlot('graph0', data.filter(o => o.decayModes.startsWith('B-')), 'n', 'z');
 
+  /*
   document.getElementById('table').innerHTML = foam.TableView(smallData, ['nuclide', 'a', 'n', 'z', 'decayModes', 't', 'unit', 'dt', 'halfLifeLog10', 'calcHalfLifeLog10', 'calc2HalfLifeLog10', 'u','d','ud','error']);
+  */
 
   /*
   function avg(data, p) {
@@ -375,6 +383,8 @@ function groupBy(f, r) {
   console.log(reduce(smallData, groupBy(o => o.n, avg(o => o.error5))));
   console.log(reduce(smallData, groupBy(o => o.n-o.z, avg(o => o.error5))));
   console.log(reduce(smallData, groupBy(o => o.n-o.z, count())));
+
+  console.log(reduce(smallData, groupBy(o => o.color, count())));
 
   console.log('*********', reduce(data, avg(o => o.dt || 0)));
   console.log('sum', reduce(data, count()));

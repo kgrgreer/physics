@@ -1,5 +1,4 @@
 const S      = 9.47e-18;   // s⁻¹ from paper
-const Ssq    = S * S;
 const c      = 299792458;  // speed of light
 const v1fm   = 4.77e22;    // c/(2π × 1fm) ≈ 4.775 × 10²²
 const SLATER = 0.9020413;  // Slater's Rules for Multi-Electron Atoms (Shielding)
@@ -458,14 +457,6 @@ foam.CLASS({
       factory: function() {
         let n = this.n, z = this.z;
 
-       // if ( n > 127 ) {
-       //   n -= 6;
-        //  if ( n < 135 ) n -=4;
-        //  if ( z > 82 && z < 87 ) n-=4;
-       //   }
-       // elseif ( n > 127 ) n-=8;
- //        else if ( n > 127 ) n-=12;
-        //        else if ( z > 83 ) n-=16;
         let f     = 1/fm;
         let p     = 3 * S / (8 * Math.PI);        // Base Free Neutron formula
 
@@ -473,25 +464,30 @@ foam.CLASS({
         let pec   = p / C(Math.pow(n+1, SLATER), z - 4*PI);  // +1 improves by 1%
 
         // Electron Release / B- like / Free Neutron
-        let per   = p * C(Math.pow(n-1, SLATER), z - PI/12); // -PI/12 improves by 1%, -1 improves by 4%
+        let per   = p * C(Math.pow(n-1, SLATER), z); // -1 improves by 4%
 
         let decay = f * (pec + per);
         let hl    = Math.log(2) / decay;
 
+        hl = Math.pow(hl, 1/Math.PI);             // hyperspherical surface-to-volume scaling
+
+        let adj = (n / this.stableN);
+        return Math.log10(hl) / adj;
+
     // or more geometrically:
     // const shell_factor = Math.pow(n / 50, 0.25);     // surface-like scaling
 
-
+/*
         if ( this.n > 82  && this.n < 98) {
           hl = Math.pow(hl, 1/Math.PI/1.4);             // hyperspherical surface-to-volume scaling
         } else if ( this.n > 50 && this.n < 82 )  {
           hl = Math.pow(hl, 1/Math.PI/1.2);             // hyperspherical surface-to-volume scaling
         } else {
           hl = Math.pow(hl, 1/Math.PI);             // hyperspherical surface-to-volume scaling
-        }
+          }
+          */
 
-        let adj = (n / this.stableN);
-        return Math.log10(hl) / adj;
+
       }
     },
 
@@ -554,10 +550,32 @@ foam.CLASS({
       }
     },
     {
+      name: 'calc5b',
+      factory: function() {
+        let c = this.calc5HalfLifeLog10;
+        if ( Number.isNaN(this.dt) ) return c;
+                let dt = Math.log10(1+this.dt);
+//        let e = Math.log10(Math.abs(Math.abs(Math.pow(10, this.halfLifeLog10)-Math.pow(10, c))-this.dt));
+
+        let e = this.error5;
+        if ( e > 0 ) {
+          e = Math.min(e, dt);
+        } else {
+          e = Math.max(e, -dt);
+        }
+//          < 0 ? Math.max(this.error5, -dt) : Math.min(this.error5, dt);
+        // let e = this.error5 / 2;
+        return c-e;
+      }
+    },
+    {
       name: 'color',
       factory: function() {
         let n = this.n;
 
+        // TODO: I take the abs of log10(dt) because values below 0 are negative, so I should investiage if this is correct
+        let e = Number.isNaN(this.dt) ? this.abserror5 : Math.max(0, this.abserror5 - Math.log10(this.dt+1));
+        return e == 0 ? 'lime' : e < 1 ? 'green' : e < 2 ? 'yellow' : e < 3 ? 'orange' : 'red';
         // return 'hsl(' + (this.z * 20 + (this.z % 2? 0: 180)) + ',' + 90 + '%,' + 50 + '%)';
         return n <= 2 ? 'red' : n <= 8 ? 'orange' : n <= 20 ? 'yellow' : n <= 28 ? 'green' : n <= 50 ? 'blue' : n <= 82 ? 'violet' : n <= 126 ? 'gray' : n <= 184 ? 'lime' : 'black' ;
       }

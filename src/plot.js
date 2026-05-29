@@ -17,7 +17,7 @@ function createScatterPlot(id, rows, xName, yName, options = {}) {
   const yValues = rows.map(r => parseFloat(r[yName]));
 
   const pointRenderer = options?.pointRenderer || function(x, y, o, i) {
-    return `<circle cx="${x}" cy="${y}" r="3" fill="${o.color || 'red'}" stroke="#222" stroke-width="0.3" data-id="${i}"/>`;
+    return `<circle cx="${x}" cy="${y}" r="1.5" fill="${o.color || 'red'}" stroke="#222" stroke-width="0.3" data-id="${i}"/>`;
   };
   let dataMin, dataMax;
 
@@ -107,20 +107,21 @@ function createScatterPlot(id, rows, xName, yName, options = {}) {
   container.querySelectorAll('circle').forEach(circle => {
     circle.addEventListener('mousemove', e => {
       const o = rows[circle.dataset.id];
+      console.log('*****************', o);
       tooltip.style.left    = (e.pageX + 15) + 'px';
       tooltip.style.top     = (e.pageY - 10) + 'px';
       tooltip.style.display = 'block';
       tooltip.innerHTML     = `
-        ${o.nuclide}<br>
-        N=${o.n}, Z=${o.z}<br>
-        N-Z=${o.n - o.z}<br>
-        u=${o.u}, d=${o.d}, u-d=${o.u-o.d}, u/d=${(o.u/o.d).toFixed(3)}<br>
-        Half-Life: ${o.halfLifeLog10.toFixed(3)}<br>
+ //       ${o.nuclide}<br>
+ //       N=${o.n}, Z=${o.z}<br>
+ //       N-Z=${o.n - o.z}<br>
+//        u=${o.u}, d=${o.d}, u-d=${o.u-o.d}, u/d=${(o.u/o.d).toFixed(3)}<br>
+//        Half-Life: ${o.halfLifeLog10.toFixed(3)}<br>
         ${xName}: ${o[xName].toFixed(2)}<br>
         ${yName}: ${o[yName].toFixed(2)}<br>
-        Mode: ${o.decayModes}<br>
-        StableN: ${o.stableN.toFixed(1)}<br>
-        ${o.debug}
+//        Mode: ${o.decayModes}<br>
+//        StableN: ${o.stableN.toFixed(1)}<br>
+//        ${o.debug}
       `;
       //         Error: ${row[errorName].toFixed(2)} dex
 
