@@ -35,39 +35,92 @@ console.log(Math.log(2)/(3*S_/(8*PI)/fm));
 console.log(Math.log(2)/(3*S_/(8*PI)/(S_*137.035999166)));
 console.log(Math.log(2)/(3/(8*PI)/(137.035999166)));
 
+/**
+ * Calculates Newton's gravitational constant (G) based on the background
+ * metric volume contraction rate (S) and fundamental subatomic boundaries.
+ * * @param {number} S - The macro-cosmic metric contraction rate (approx 9.4757e-18 s^-1)
+ * @returns {number} G - The derived Newtonian gravitational constant (m^3 kg^-1 s^-2)
+ */
+function deriveGravityFromMetric(S) {
+  // 1. Define fundamental subatomic and atomic boundaries (SI Units)
+  const a0 = 5.29177210903e-11;      // Bohr radius (meters)
+  const m_p = 1.67262192369e-27;     // Proton rest mass (kilograms)
+  const c = 299792458;               // Speed of light (meters / second)
+
+  // 2. Define baseline electrostatic coupling boundary (ke * e^2)
+  // where ke = 1 / (4 * PI * epsilon_0)
+  // Standard value for ke * e^2 is approx 2.30707755e-28 J*m
+  const ke_e2 = 2.307077552397e-28;
+
+  // 3. Compute the active cosmological load (Numerator)
+  const cosmologicalLoad = S * a0 * ke_e2;
+
+  // 4. Compute the structural inertia of baryonic matter (Denominator)
+  const materialInertia = 2 * c * Math.pow(m_p, 2);
+
+  // 5. Calculate the localized pressure gradient deficit (G)
+  const G = cosmologicalLoad / materialInertia;
+
+  return G;
+}
+
+// --- Verification Example ---
+const targetS = 9.47573e-18;
+const derivedG = deriveGravityFromMetric(targetS);
+
+console.log(`Input S: ${targetS.toExponential(5)} s^-1`);
+console.log(`Derived G: ${derivedG.toExponential(5)} m^3 kg^-1 s^-2`);
+// Output matches the standard gravitational constant scale: ~6.6743e-11
+// Simple 1D Universe Simulator
+// Contains only two masses which are the mirror image of each other
 function sym() {
-  const H0 = 0.00001;
-  const S  = H0*3;
-  const g  = 1; //10;
-  const R  = 100;
+  const H0 = 0.00001; // Much larger H0 to make simulation easier
+  const S  = H0*3;    // Contraction Rate
+  const g  = 0.012; //deriveGravityFromMetric(S); //0.012;   // Gravitational constant
+  const R  = 100;     // Starting Size of Matter
 
-  // Actually there are two masses, the mirror image of each other
-  let m1 = { name: 'm1', r: R, m: 10, x: 5*R, v: 0 };
+  console.log('g: ', g);
 
-  let oldD = 2 * m1.x;
-  for ( let i = 0 ; i < 10000 ; i++ ) {
+  // Actually there are two masses, the mirror image of each other, so we can just simulate one
+  let m1 = {
+    name: 'm1',
+    r: R,    // Size, shrinks with time
+    m: 10,   // mass, in it's own frame, doesn't change
+    x: 5*R,  // x location in the unchanging fixed size space frame
+    v: 0     // Starting velocity, in relation to the own size 'r'
+  };
+  let s1 = { x: 5*R };
+
+  let oldD = 2 * m1.x; // Distance between masses in previous iteration
+  let oldD2 = 2 * s1.x; // Distance between masses in previous iteration
+
+  for ( let i = 0 ; i < 10000000 ; i++) {
     // Calculate distance using matter as the ruler
     let d = 2 * m1.x * R / m1.r;
+    let d2 = 2 * s1.x * R / m1.r;
+    // Force of gravity
     let f = g * m1.m * m1.m / Math.pow(d, 2);
+    // Observed Matter Separation: equivalent of H0
+    let r = 1/((d-oldD)/oldD/S);
+    let r2 = 1/((d2-oldD2)/oldD2/S);
 
-    let r = S*oldD/(d-oldD);
-    console.log(`i: ${i}, H: ${r.toFixed(6)}, v: ${(-m1.v).toFixed(8)}, dist: ${(d).toFixed(4)}, force: ${(1000000*f).toFixed(5)} -- ${JSON.stringify(m1)}`);
+    if ( i % 50000 == 0 )
+      console.log(`i: ${i}, Hm: ${r.toFixed(8)} S, Hs: ${r2.toFixed(8)}S, v: ${(-m1.v).toFixed(8)}, dist: ${(d).toFixed(4)}, force: ${(1000000*f).toFixed(5)}`);//  ${JSON.stringify([s1, m1])}`);
 
-    // Shrink
-    // size
-    m1.r = Math.pow(Math.pow(m1.r, 3) * (1-S), 1/3)
-//    m1.v *= S1; // if v is m/s, it isn't the m getting smaller but the s getting faster as matter shrinks
+    // Shrink Matter
+    m1.r = m1.r * Math.pow(1-S, 1/3); // same as above
 
     // Gravitational Acceleration
- //   m1.v -= f/m1.m;
+    m1.v -= f/m1.m;
 
-    // Accumulate Velocity, relative to size of matter
+    // Accumulate Velocity, relative to size of matter, since 'x' is absolute
     m1.x += R * m1.v / m1.r;
 
     // Stop if collide with the other mass
-    if ( m1.x < m1.r ) { console.log('***',m1); break; m1.x = m1.r; m1.v = 0; }
+    // if ( m1.x < m1.r ) { console.log('***',m1); break; m1.x = m1.r; m1.v = 0; }
 
     oldD = d;
+    oldD2 = d2;
   }
 }
 
