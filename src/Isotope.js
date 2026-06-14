@@ -457,11 +457,11 @@ foam.CLASS({
       factory: function() {
         let n = this.n, z = this.z;
 
-        let f     = 1/fm;
+        let f     = 1e15;
         let p     = 3 * S / (8 * Math.PI);        // Base Free Neutron formula
-
+        debugger;
         // Electron Capture / B+ like
-        let pec   = p / C(Math.pow(n+1, SLATER), z - 4*PI);  // +1 improves by 1%
+        let pec   = p / C(Math.pow(n, SLATER), z - 4*PI);
 
         // Electron Release / B- like / Free Neutron
         let per   = p * C(Math.pow(n-1, SLATER), z); // -1 improves by 4%

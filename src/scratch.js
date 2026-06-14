@@ -75,26 +75,25 @@ console.log(`Derived G: ${derivedG.toExponential(5)} m^3 kg^-1 s^-2`);
 // Contains only two masses which are the mirror image of each other
 function sym() {
   const H0 = 0.00001; // Much larger H0 to make simulation easier
-  const S  = H0*3;    // Contraction Rate
-  const g  = 0.012; //deriveGravityFromMetric(S); //0.012;   // Gravitational constant
+  const S  = 3e-4; // 1 million years of S, H0*3;    // Contraction Rate
+  const g  = 50; //deriveGravityFromMetric(S); //0.012;   // Gravitational constant
   const R  = 100;     // Starting Size of Matter
 
   console.log('g: ', g);
 
   // Actually there are two masses, the mirror image of each other, so we can just simulate one
   let m1 = {
-    name: 'm1',
     r: R,    // Size, shrinks with time
-    m: 10,   // mass, in it's own frame, doesn't change
-    x: 5*R,  // x location in the unchanging fixed size space frame
-    v: 0     // Starting velocity, in relation to the own size 'r'
+    m: 100,   // mass, in it's own frame, doesn't change
+    x: 2*R,  // x location in the unchanging fixed size space frame
+    v: 2     // Starting velocity, in relation to the own size 'r'
   };
   let s1 = { x: 5*R };
 
   let oldD = 2 * m1.x; // Distance between masses in previous iteration
   let oldD2 = 2 * s1.x; // Distance between masses in previous iteration
 
-  for ( let i = 0 ; i < 10000000 ; i++) {
+  for ( let i = 0 ; i < 10000 ; i++) {
     // Calculate distance using matter as the ruler
     let d = 2 * m1.x * R / m1.r;
     let d2 = 2 * s1.x * R / m1.r;
@@ -104,11 +103,13 @@ function sym() {
     let r = 1/((d-oldD)/oldD/S);
     let r2 = 1/((d2-oldD2)/oldD2/S);
 
-    if ( i % 50000 == 0 )
-      console.log(`i: ${i}, Hm: ${r.toFixed(8)} S, Hs: ${r2.toFixed(8)}S, v: ${(-m1.v).toFixed(8)}, dist: ${(d).toFixed(4)}, force: ${(1000000*f).toFixed(5)}`);//  ${JSON.stringify([s1, m1])}`);
+    //  if ( i % 1000 == 0 )
 
+      console.log(`i: ${i}, Hm: ${r.toFixed(8)} S,v: ${(-m1.v).toFixed(8)}, dist: ${(d).toFixed(4)}, force: ${(1000000*f).toFixed(5)} -- ${JSON.stringify(m1)}`);
+//  Hs: ${r2.toFixed(8)}S,
     // Shrink Matter
-    m1.r = m1.r * Math.pow(1-S, 1/3); // same as above
+    m1.r *= Math.pow(1-S, 1/3);
+    // m1.v *= Math.pow(1-S, 1/3); // Needed if I want to move velocity to be absolute, not relative to r
 
     // Gravitational Acceleration
     m1.v -= f/m1.m;
@@ -117,7 +118,7 @@ function sym() {
     m1.x += R * m1.v / m1.r;
 
     // Stop if collide with the other mass
-    // if ( m1.x < m1.r ) { console.log('***',m1); break; m1.x = m1.r; m1.v = 0; }
+    if ( m1.x < m1.r ) { console.log('***',m1); break; m1.x = m1.r; m1.v = 0; }
 
     oldD = d;
     oldD2 = d2;
