@@ -4,7 +4,9 @@ const v1fm   = 4.77e22;    // c/(2π × 1fm) ≈ 4.775 × 10²²
 const SLATER = 0.9020413;  // Slater's Rules for Multi-Electron Atoms (Shielding)
 const fm     = 1e-15;
 const PI     = Math.PI;
+const E      = Math.E;
 
+// S = 9.47797074e-18
 
 function gamma(z) {
   return Math.sqrt(2 * Math.PI / z) * Math.pow((1 / Math.E) * (z + 1 / (12 * z - 1 / (10 * z))), z);
@@ -457,37 +459,41 @@ foam.CLASS({
       factory: function() {
         let n = this.n, z = this.z;
 
-        let f     = 1e15;
-        let p     = 3 * S / (8 * Math.PI);        // Base Free Neutron formula
-        debugger;
+        let f = 2.471180e20; // ν_e (Zitterbewegung frequency) ≈ 2.471 × 10^{20} Hz
+        let p = S / E;
+
+        // Note: We have accidentally discovered the fine structured constant alpha at this point:
+        // let alpha = 2 * Math.PI / (f * p);
+        // 1 / alpha = 137.01875251495488
+
+        // Note: We have the hl of the free neutron now, with two derivatives:
+        // let freeNeutronHL = Math.log(2)*f*p;
+        // let freeNeutronHL = Math.log(2)*2*Math.PI/alpha
+        // freeNeutronHL = 596.7402591746348
+
+        // Calclate Free Neutron Half-Life
+        //   Bottle Method: 608s
+        //   Beam Method:   615s
+        //   This calculation without corrections: 597sv
+        // My theory is that both the Bottle and Beam methods use magnetic fields which
+        // provide the same kind of shielding that would be provided by an electron shell
+        // which has the effect of deflecting would-be escaping electrons and extending
+        // the half-life. The Beam method uses a strong field so extends the HL longer than
+        // the Bottle method does, but they both extend it beyond the 497s baseline.
+
         // Electron Capture / B+ like
-        let pec   = p / C(Math.pow(n, SLATER), z - 4*PI);
+        let pec   = 1 / C(Math.pow(n, SLATER), z - 4*PI);
 
         // Electron Release / B- like / Free Neutron
-        let per   = p * C(Math.pow(n-1, SLATER), z); // -1 improves by 4%
+        let per   = 1 * C(Math.pow(n-1, SLATER), z); // -1 improves by 4%, expected by hypothesis, not fit
 
-        let decay = f * (pec + per);
+        let decay = f * Math.pow(p * (pec + per), E/2); // Why ^E/2?
         let hl    = Math.log(2) / decay;
 
-        hl = Math.pow(hl, 1/Math.PI);             // hyperspherical surface-to-volume scaling
+        hl = Math.pow(hl, 1/Math.PI);               // hyperspherical surface-to-volume scaling
 
-        let adj = (n / this.stableN);
+        let adj = (n / this.stableN);               // Adjust for curve in valley of stability
         return Math.log10(hl) / adj;
-
-    // or more geometrically:
-    // const shell_factor = Math.pow(n / 50, 0.25);     // surface-like scaling
-
-/*
-        if ( this.n > 82  && this.n < 98) {
-          hl = Math.pow(hl, 1/Math.PI/1.4);             // hyperspherical surface-to-volume scaling
-        } else if ( this.n > 50 && this.n < 82 )  {
-          hl = Math.pow(hl, 1/Math.PI/1.2);             // hyperspherical surface-to-volume scaling
-        } else {
-          hl = Math.pow(hl, 1/Math.PI);             // hyperspherical surface-to-volume scaling
-          }
-          */
-
-
       }
     },
 

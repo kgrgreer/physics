@@ -43,10 +43,9 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
   // Apply filtering criteria
   data = data
     .filter(o => o.halfLifeLog10 > -8 && o.halfLifeLog10 < 8) // In reliable range
-    .filter(o => o.z)                  // Has Electrons
+//    .filter(o => o.z)                  // Has Electrons ??? Why needed
     .filter(o => ! isNaN(o.t))         // Stable
     .filter(o => o.i == '0');          // Non ground state isotopes
- //   .filter(o => o.halfLifeLog10 < 8); // Long (unreliable) half-lives
 
   log(`Keeping ${data.length} isotopes.\n`);
 

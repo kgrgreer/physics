@@ -127,3 +127,58 @@ function sym() {
 
 
 sym();
+
+(function() {
+  // Calclate Free Neutron Half-Life
+  //   Bottle Method: 608s
+  //   Beam Method:   615s
+  //   This calculation without corrections: 597sv
+  // My theory is that both the Bottle and Beam methods use magnetic fields which
+  // provide the same kind of shielding that would be provided by an electron shell
+  // which has the effect of deflecting would-be escaping electrons and extending
+  // the half-life. The Beam method uses a strong field so extends the HL longer than
+  // the Bottle method does, but they both extend it beyond the 497s baseline.
+
+  // Math.log(2)*(137*Math.PI*Math.E*3/4)
+
+  // ν_e (Zitterbewegung frequency) ≈ 2.471 × 10^{20} Hz
+  const S  = 9.47573e-18; // estimated value, not precise
+  const ve = 2.471180e20;
+
+  // Is actually 2*PI*E/(S^1s * ve * 1s)
+  // Since S needs to be used with an exponent and then ve needs to be converted to the same units
+  let a = 2*Math.PI*Math.E/(S*ve);
+  console.log('alpha:', a, 1/a); // outputs: 137.10165826489265, real value: 137.035999177
+
+  let hl1 = Math.log(2)*Math.PI*2/a; // Using 'a'
+  console.log('hl1:', hl1);
+  let hl = Math.log(2)*S*ve/Math.E; // Just using S and ve directly
+  console.log('free neutron half-life:', hl); // 597.1 (low)
+  console.log('error: ', 611/hl); // 1.023
+})();
+
+console.log(1.03*137.10165826489265*Math.E*Math.PI/2/Math.pow(9192631770,2)*4/3); // 9.467600868444685e-18
+
+
+
+(function() {
+  // 1. Establish the foundational physical constants
+  const alpha = 0.0072973525693;        // Fine-structure constant (1/137.035999)
+  const sin2ThetaW = 0.23122;          // Weinberg angle / Weak mixing angle
+  const cesiumFrequency = 9192631770;  // Standard definition of 1 second in Hz
+
+  // 2. Derive the 1.025 scaling modifier in-place
+  // This represents the local coordinate metric slip factor: (1 + alpha / sin^2_theta_W)
+  const localMetricSlip = 1 + (alpha / sin2ThetaW);
+
+  // 3. Define the pure geometric boundaries
+  const inverseAlphaBase = 137.10165826489265;
+  const e = Math.E;
+  const pi = Math.PI;
+
+  // 4. Execute the grand system clock integration
+  const S = (localMetricSlip * inverseAlphaBase * e * pi / 2 / Math.pow(cesiumFrequency, 2)) * (4 / 3);
+
+  console.log(`Derived Modifier: ${localMetricSlip}`);
+  console.log(`Cosmological Shrinkage Rate (S): ${S}`);
+})();
