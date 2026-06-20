@@ -112,16 +112,16 @@ function createScatterPlot(id, rows, xName, yName, options = {}) {
       tooltip.style.top     = (e.pageY - 10) + 'px';
       tooltip.style.display = 'block';
       tooltip.innerHTML     = `
- //       ${o.nuclide}<br>
- //       N=${o.n}, Z=${o.z}<br>
- //       N-Z=${o.n - o.z}<br>
-//        u=${o.u}, d=${o.d}, u-d=${o.u-o.d}, u/d=${(o.u/o.d).toFixed(3)}<br>
-//        Half-Life: ${o.halfLifeLog10.toFixed(3)}<br>
+        ${o.nuclide}<br>
+        N=${o.n}, Z=${o.z}<br>
+        N-Z=${o.n - o.z}<br>
+        u=${o.u}, d=${o.d}, u-d=${o.u-o.d}, u/d=${(o.u/o.d).toFixed(3)}<br>
+        Half-Life: ${o.halfLifeLog10.toFixed(3)}<br>
         ${xName}: ${o[xName].toFixed(2)}<br>
         ${yName}: ${o[yName].toFixed(2)}<br>
-//        Mode: ${o.decayModes}<br>
-//        StableN: ${o.stableN.toFixed(1)}<br>
-//        ${o.debug}
+        Mode: ${o.decayModes}<br>
+        StableN: ${o.stableN.toFixed(1)}<br>
+        ${o.debug}
       `;
       //         Error: ${row[errorName].toFixed(2)} dex
 

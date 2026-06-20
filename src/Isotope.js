@@ -232,94 +232,6 @@ foam.CLASS({
     },
 
     {
-      name: 'beta_exposure',
-      factory: function() {
-        const nzRatio           = this.n / this.z;
-        const stableRatioApprox = 1.0 + 0.00434 * this.z;   // tuned to real data
-
-        return nzRatio - stableRatioApprox-0.12;
-      }
-    },
-
-    {
-      name: 'calc2HalfLifeLog10',
-      factory: function() {
-        const n = this.n, z = this.z;
-
-        // thl = ln(2)/(f*p)
-        let f = 10e21;
-//        let p = S * Math.pow(z, 2.5*n);
-        let l = Math.log10(S) + (2.5*n/z*Math.log10(z));
-
-//        console.log('f', f, 'p', l);
-        let hl = Math.log10(Math.log(2))-Math.log10(f)-l;
-
-        return hl + 17;
-//        let hl = Math.log(10)/(-f*Math.log(1-p));
-
-  //      return hl;
-        return interp(-34.51,255.48,6.66,4.86)(hl);
-//        return interp(-12.51, 277.48, 6.66, 4.859)(Math.log10(S * Math.pow(z, 2.5*n)));
-      }
-    },
-    {
-      name: 'calcHalfLifeLog10',
-      factory: function() {
-        let n = this.n, z = this.z;
-//        this.color = 'red';
-//        if ( n > 126 && n < 133 && z > 83) { this.color='black'; } //else if ( n > 82 ) { z -= 3; }
-        const log10Z = Math.log10(z);
-        let hl=           (( n > 126 &&  n < 133 && z > 83) ? -3 : 0) +
-(
-          5
-          + Math.log10(S)
-          + n *5* log10Z
-)/(Math.sqrt(z)*4) + interp(60, 115, -18, -41)(z);
-
-        let bonus = 0;
-
-//        this.color = '#fff0';
-        if ( this.beta_exposure > 0.1 ) {
-  //        this.color = 'black';
-        }
-        if ( n-z == 1 ) {
-          bonus = -1;
-        } else if ( n-z == -1 ) {
-          bonus = -3.5;
-        } else if ( n-z == -1 || n-z == -2 || n-z == -3 || n-z == -4 ) {
-          bonus = -4;
-        } else if ( n == z && this.beta_exposure < 0 && n % 2 == 0 ) {
-          bonus = -1;
-        } else if ( n == z && this.beta_exposure < 0 && n % 2 == 1 ) {
-          bonus = -4;
-        } else if ( n == 126 ) {
-          bonus = -2;
-        } else if ( n >= 127 && n < 135 ) {
-          if ( this.beta_exposure < 0 ) {
-            bonus = -3;
-//          this.color = 'lime';
-          } else {
-            bonus += 1;
-  //        this.color = 'white';
-          }
-        }
-
-        hl += (this.beta_exposure > 0.001 ? 6+2*(13-hl)-21.5 : 0) + bonus;
-
-        if ( hl > 0) hl = Math.pow(hl, 1.2)/1.3;
-
-        return (hl-0.6);
-      }
-    },
-
-    {
-      name: 'denominator',
-      factory: function() {
-        let n = this.n, z = this.z;
-        return 2.5*2*(n)*Math.log10(z);
-      }
-    },
-    {
       name: 'dLz',
       factory: function() { return this.n-L(this.z); }
     },
@@ -330,113 +242,6 @@ foam.CLASS({
     {
       name: 'nPlusZ',
       factory: function() { return this.n+this.z; }
-    },
-    {
-      name: 'calc3HalfLifeLog10',
-      factory: function() {
-        let n = this.n, z = this.z;
-        this.color = 'red';
-        if ( this.decayModes.indexOf('B-') != -1 ) this.color = 'blue';
-        // if ( n > 125 && n < 134 && z > 83 ) this.color = 'green';
-
-        let p = this.denominator;
-
-        this.debug = 'denominator: ' + p;
-
-        let hl = (2*Math.log10(S) + Math.log10(v1fm) - p)/Math.pow(10, 2*Math.E/Math.PI)+Math.log10(c);
-        let bonus = 0;
-        if ( n-z == 1 ) {
-          bonus = -1;
-        } else if ( n-z == -1 ) {
-          bonus = -3.5;
-        } else if ( n-z == -1 || n-z == -2 || n-z == -3 || n-z == -4 ) {
-          bonus = -4;
-        } else if ( n == z && this.beta_exposure < 0 && n % 2 == 0 ) {
-          bonus = -1;
-        } else if ( n == z && this.beta_exposure < 0 && n % 2 == 1 ) {
-          bonus = -4;
-        }
-        if ( n-z == -1 ) { this.color = 'brown'; bonus -= 2.5; }
-        if ( n-z <= -5 && n-z > -9 ) { this.color = 'pink'; bonus -= 7; }
-        if ( n-z <= -2 && n-z >= -4 ) { this.color = 'purple'; bonus -= 2; }
-        if ( n-z >= 38 && n-z <= 42 ) { this.color = 'black'; }
-
-        if ( n > 125 && n < 134 && z > 83 ) bonus -= 7;
-
-        this.color = this.decayModes == 'B+=100' ? 'red' : 'blue';
-        hl += interp(40, 0, 18, 2)(n-z)-Math.PI/2 ;
-        return hl+bonus;
-      }
-    },
-
-    {
-      name: 'calc4HalfLifeLog10',
-      factory: function() {
-        let n = this.n, z = this.z;
-
-//        let f        = v1fm * z;
-        let f        = v1fm;
-        let p        = S*(2+Math.pow(n, Math.pow(0.5, n-z+1)))*z * interp(1,Math.sqrt(30), 1, 0.45)(Math.sqrt(n-z)); // (or n ?);
- //       let p        = S*(2+Math.pow(n, Math.pow(0.5, n-z+1)))*z * Math.sqrt(n-z)/2;
-    //    if ( Number.isNaN(p) || p == 0) p = 1e-14;
-        // console.log(p);
-          let duration = 1/f;
-        let decay    = p/duration;
-        let hl       = c * 4 / 3 * Math.log(2)/decay;
-        //return h1 - Math.E;
-        let oddEvenBonus = n % 2 ? -0.11 : .2; // 0.117/2;
-        return Math.pow(hl - 1.34*Math.E, Math.PI/2) + oddEvenBonus;// - (n-z)/40*6*(80-n)/20
-      }
-    },
-
-    {
-      name: 'pa',
-      factory: function() {
-        let n = this.n, z = this.z;
-        return 100000*(Math.pow(n, Math.pow(0.5, n-z+1))) * Math.pow(z,1/3);
-      }
-    },
-
-    {
-      name: 'xxxcalc4HalfLifeLog10',
-      factory: function() {
-        let n = this.n, z = this.z;
-
-        function calc(nz) {
-          let f        = v1fm * interp(1,Math.sqrt(30), 1, 0.45)(Math.sqrt(nz)); // (or n ?)
-          let pa       = (2+Math.pow(n, Math.pow(0.5, n-z+1)));
-          let pb       = (2+Math.pow(n, Math.pow(0.5, 86-n+z)));
-          let p        = S * (pa); //Math.max(pa,pb);
-//          let duration = 1/f;
-          let decay    = p*f; /// p/duration;
-          let hl       = c * 4 / 3 * Math.log(2)/decay;
-
-          // return -Math.E/2 + Math.pow(hl + 4*Math.E, Math.PI/2) || 2;
-          // return h1 - Math.E;
-          let oddEvenBonus = n % 2 ? -0.11 : .2; // 0.117/2;
-          return Math.pow(hl - 1.34*Math.E, Math.PI/2) + oddEvenBonus;// - (n-z)/40*6*(80-n)/20
-        }
-
-        let minError = 100000000000000, minValue = 0;
-        for ( let i = n-z-8 ; i <= n-z+8 ; i++ ) {
-          if ( i < 1 ) continue;
-          let value = calc(i);
-          let error = Math.abs(this.halfLifeLog10-value);
-          if ( error < minError ) { minError = error; minValue = value; this.nzOffset = n-z-i }
-        }
-        return calc(n-z);
-        return minValue;
-      }
-    },
-    // B⁻ half-life predictor (pure geometry, no Q)
-    {
-      name: 'calcHalfLifeLog10_Bminus',
-      factory: function() {
-        const exposure = this.beta_exposure;
-        // Base scaling is π/2 from nuclear diameter exposure (your fitted -1.56 ≈ -π/2)
-        return 18.5 - (Math.PI / 2) * Math.log10(this.z || 1) + 0.09 * exposure + interp(19,50,-20,-8)(this.z)
-        // 18.5 is the intercept (tuned once on the large dataset)
-      }
     },
 
     {
@@ -455,7 +260,7 @@ foam.CLASS({
     },
 
     {
-      name: 'calc5HalfLifeLog10',
+      name: 'calcHalfLifeLog10',
       factory: function() {
         let n = this.n, z = this.z;
 
@@ -500,78 +305,24 @@ foam.CLASS({
     {
       name: 'error',
       factory: function() {
-        const error = this.halfLifeLog10-this.calc4HalfLifeLog10;
-        /*
+        const error = this.halfLifeLog10-this.calcHalfLifeLog10;
         if ( error < 3 ) this.color = 'red';
         if ( error < 3 ) this.color = 'orange';
         if ( error < 2 ) this.color = 'yellow';
         if ( error < 1 ) this.color = 'green';
-        */
         return error;
       }
     },
 
     {
-      name: 'error4',
-      factory: function() {
-        const error = this.calc4HalfLifeLog10-this.halfLifeLog10;
-        /*
-        if ( error < 3 ) this.color = 'red';
-        if ( error < 3 ) this.color = 'orange';
-        if ( error < 2 ) this.color = 'yellow';
-        if ( error < 1 ) this.color = 'green';
-        */
-        return error;
-      }
+      name: 'abserror',
+      factory: function() { return Math.abs(this.error); }
     },
-    {
-      name: 'abserror4',
-      factory: function() { return Math.abs(this.error4); }
-    },
-    {
-      name: 'error5',
-      factory: function() {
-        const error = this.calc5HalfLifeLog10-this.halfLifeLog10;
-        /*
-        if ( error < 3 ) this.color = 'red';
-        if ( error < 3 ) this.color = 'orange';
-        if ( error < 2 ) this.color = 'yellow';
-        if ( error < 1 ) this.color = 'green';
-        */
-        return error;
-      }
-    },
-    {
-      name: 'abserror5',
-      factory: function() { return Math.abs(this.error5); }
-    },
-    {
-      name: 'cc',
-      factory: function() { return 611 + 100*Math.pow(this.u/(this.d+this.u),2); /*return this.n/(this.z+1);*/ }
-    },
+
     {
       name: 'value',
       factory: function() {
         return this.z/this.n;
-      }
-    },
-    {
-      name: 'calc5b',
-      factory: function() {
-        let c = this.calc5HalfLifeLog10;
-        if ( Number.isNaN(this.dt) ) return c;
-                let dt = Math.log10(1+this.dt);
-//        let e = Math.log10(Math.abs(Math.abs(Math.pow(10, this.halfLifeLog10)-Math.pow(10, c))-this.dt));
-
-        let e = this.error5;
-        if ( e > 0 ) {
-          e = Math.min(e, dt);
-        } else {
-          e = Math.max(e, -dt);
-        }
-//          < 0 ? Math.max(this.error5, -dt) : Math.min(this.error5, dt);
-        // let e = this.error5 / 2;
-        return c-e;
       }
     },
     {
@@ -580,7 +331,7 @@ foam.CLASS({
         let n = this.n;
 
         // TODO: I take the abs of log10(dt) because values below 0 are negative, so I should investiage if this is correct
-        let e = Number.isNaN(this.dt) ? this.abserror5 : Math.max(0, this.abserror5 - Math.log10(this.dt+1));
+        let e = Number.isNaN(this.dt) ? this.abserror : Math.max(0, this.abserror - Math.log10(this.dt+1));
         return e == 0 ? 'lime' : e < 1 ? 'green' : e < 2 ? 'yellow' : e < 3 ? 'orange' : 'red';
         // return 'hsl(' + (this.z * 20 + (this.z % 2? 0: 180)) + ',' + 90 + '%,' + 50 + '%)';
         return n <= 2 ? 'red' : n <= 8 ? 'orange' : n <= 20 ? 'yellow' : n <= 28 ? 'green' : n <= 50 ? 'blue' : n <= 82 ? 'violet' : n <= 126 ? 'gray' : n <= 184 ? 'lime' : 'black' ;

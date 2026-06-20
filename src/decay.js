@@ -163,9 +163,9 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
   globalThis.byNZ = byNZ;
 
   let avgData = smallData;
-  console.log('avg error:', getAverage(avgData.map(o => o.abserror5)));
-  console.log('avg odd error:', getAverage(avgData.filter(o => o.n %2).map(o => o.abserror5)));
-  console.log('avg even error:', getAverage(avgData.filter(o => o.n % 2 == 0).map(o => o.abserror5)));
+  console.log('avg error:', getAverage(avgData.map(o => o.abserror)));
+  console.log('avg odd error:', getAverage(avgData.filter(o => o.n %2).map(o => o.abserror)));
+  console.log('avg even error:', getAverage(avgData.filter(o => o.n % 2 == 0).map(o => o.abserror)));
 
 //  smallData.push(Isotope({aEl: '0N', a: 1, i: '0', n: 1, z: 0, color: 'pink', t: 611, unit: 's', decayModes:'B-=100', element: '-', nuclide: 'N-0', r: 8 }));
 
@@ -189,29 +189,17 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
     */
 
 
-  createScatterPlot('graph0', smallData, 'calc5HalfLifeLog10', 'halfLifeLog10', {
+  createScatterPlot('graph0', smallData, 'calcHalfLifeLog10', 'halfLifeLog10', {
     title: 'Calc4 HL',
     squareAspect: true,
     xxxpointRenderer: nMinusZRenderer
   });
 
-  createScatterPlot('graph0', smallData, 'calc5b', 'halfLifeLog10', {
-    title: 'Calc4 HL',
-    squareAspect: true,
-    xxxpointRenderer: nMinusZRenderer
-  });
-
-    createScatterPlot('graph0', smallData, 'calc5HalfLifeLog10', 'error5', {
+    createScatterPlot('graph0', smallData, 'calcHalfLifeLog10', 'error', {
     title: 'Calc4 HL',
     squareAspect: false,
     xxxpointRenderer: nMinusZRenderer
     });
-
-  createScatterPlot('graph0', smallData, 'pa', 'halfLifeLog10', {
-    title: 'Calc4 HL',
-    squareAspect: false,
-    pointRenderer: nMinusZRenderer
-  });
 
   createScatterPlot('graph0', smallData, 'd', 'u', {
     title: 'N X Z',
@@ -220,34 +208,6 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
     customizeSVG: drawMagicLines
   });
 
-  createScatterPlot('graph0', smallData, 'beta_exposure', 'abserror4',  {
-    title: 'NZ Offset',
-    squareAspect: false,
-    pointRenderer: nMinusZRenderer
-  });
-
-
-  createScatterPlot('graph0', smallData, 'nMinusZ', 'error4', {
-    title: 'Error X N-Z',
-    squareAspect: false,
-    pointRenderer: nMinusZRenderer
-  });
-
-  createScatterPlot('graph0', smallData, 'cc', 'error4', {
-    title: 'Calc4 Error',
-    squareAspect: false
-  });
-
-
-  const data2 = data.filter(e => e.decayModes=='EC=100'/* || e.decayModes=='B-=100'*/)
-//  const data2 = ecLikeData;
-  createScatterPlot('graph0', data.filter(e => e.decayModes.indexOf('A') == -1 && e.decayModes == 'B+=100' ), 'calc3HalfLifeLog10', 'halfLifeLog10', {
-    title: 'Calc2 HL',
-    squareAspect: true,
-    pointRenderer: nMinusZPointRenderer
-  });
-
-  // return;
 
   createScatterPlot('graph0', data.filter(e => e.decayModes.indexOf('A') == -1 ), 'calcHalfLifeLog10', 'halfLifeLog10', {
     title: 'Calc HL',
@@ -276,11 +236,6 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 
     createScatterPlot('graph0', data, 'u', 'd', { squareAspect: true, pointRenderer: pointRenderer, customizeSVG: drawMagicLines});
 
-//  return;
-  createScatterPlot('graph0', bMinusData, 'beta_exposure', 'halfLifeLog10', { pointRenderer: exposureRenderer, squareAspect: true });
-
-  createScatterPlot('graph0', bMinusData, 'beta_exposure', 'halfLifeLog10', { pointRenderer: magicRenderer, squareAspect: true });
-
   /*
   for ( let n = 3 ; n < 177 ; n++ ) {
     createScatterPlot('graph0', data.filter(o => o.decayModes.indexOf('B-=') != -1), 'beta_exposure', 'halfLifeLog10', {
@@ -294,21 +249,10 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
     }
     */
 
-  createScatterPlot('graph0', bMinusData, 'halfLifeLog10', 'calcHalfLifeLog10_Bminus', {
-    squareAspect: true,
-    title: 'BMinus HL',
-    customizePoint: function(o) {
-      return [ 3, o.decayModes.startsWith('B-') ? 'black' : 'red' ];
-    }
-  });
-
   createScatterPlot('graph0', data, 'n', 'z', { pointRenderer: pointRenderer, customizeSVG: drawMagicLines });
 
   createScatterPlot('graph0', data.filter(o => o.decayModes.startsWith('B-')), 'n', 'z');
 
-  /*
-  document.getElementById('table').innerHTML = foam.TableView(smallData, ['nuclide', 'a', 'n', 'z', 'decayModes', 't', 'unit', 'dt', 'halfLifeLog10', 'calcHalfLifeLog10', 'calc2HalfLifeLog10', 'u','d','ud','error']);
-  */
 
   /*
   function avg(data, p) {
@@ -379,15 +323,15 @@ function groupBy(f, r) {
   console.log(reduce([1,2,3,4], groupBy(o => o<3, avg())));
   console.log(reduce([1,2,3,4], groupBy(o => o<3, avg())));
 
-  console.log(reduce(smallData, groupBy(o => o.n, avg(o => o.error5))));
-  console.log(reduce(smallData, groupBy(o => o.n-o.z, avg(o => o.error5))));
+  console.log(reduce(smallData, groupBy(o => o.n, avg(o => o.error))));
+  console.log(reduce(smallData, groupBy(o => o.n-o.z, avg(o => o.error))));
   console.log(reduce(smallData, groupBy(o => o.n-o.z, count())));
 
   console.log(reduce(smallData, groupBy(o => o.color, count())));
 
   console.log('*********', reduce(data, avg(o => o.dt || 0)));
   console.log('sum', reduce(data, count()));
-  console.log('sum2', reduce(data.filter(o => Math.abs(o.error5) < Math.log10(o.dt)), count()));
+  console.log('sum2', reduce(data.filter(o => Math.abs(o.error) < Math.log10(o.dt)), count()));
 
   /*
   let byNSlope = mToA(
@@ -396,7 +340,7 @@ function groupBy(f, r) {
     );
     */
   let byNSlope = mToA(
-    reduce(smallData, groupBy(o => o.n, seq(avg(a => a.halfLifeLog10), avg(a => a.calc5HalfLifeLog10)))),
+    reduce(smallData, groupBy(o => o.n, seq(avg(a => a.halfLifeLog10), avg(a => a.calcHalfLifeLog10)))),
     (o, i) => { return { n: i, slope: o[0]/o[1] }; }
   );
   let slopes = [];
