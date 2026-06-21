@@ -42,7 +42,7 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 
   // Apply filtering criteria
   data = data
-    .filter(o => o.halfLifeLog10 > -8 && o.halfLifeLog10 < 8) // In reliable range
+      .filter(o => o.halfLifeLog10 > -11 && o.halfLifeLog10 < 8) // In reliable range
 //    .filter(o => o.z)                  // Has Electrons ??? Why needed
     .filter(o => ! isNaN(o.t))         // Stable
     .filter(o => o.i == '0');          // Non ground state isotopes
@@ -137,13 +137,17 @@ load(baseUrl + nubaseFilename, Isotope).then(data => {
 //    smallData = smallData.filter(e => e.nMinusZ > 8);
 //   smallData = smallData.filter(e => e.halfLifeLog10 < 5);
 //  smallData = smallData.filter(e => e.decayModes == 'A=100');
+  smallData = smallData.filter(e => e.totalMagic > -310);
   smallData = smallData.filter(e => e.decayModes.indexOf('A') == -1);
-  smallData = smallData.filter(e => e.n < 150);
+  smallData = smallData.filter(e => e.decayModes.indexOf('SF') == -1);
+//  smallData = smallData.filter(e => e.decayModes.indexOf('p') == -1);
+//  smallData = smallData.filter(e => e.decayModes.indexOf('?') == -1);
+//  smallData = smallData.filter(e => e.n < 150);
 //  smallData = smallData.filter(e => e.n > 5);
 //  smallData = smallData.filter(e => e.dt >3);
 //  smallData = smallData.filter(e => e.n == 80);
 //  smallData = smallData.filter(e => e.n%2 == 0);
-  smallData = smallData.filter(e => e.n-e.z > 5);
+//  smallData = smallData.filter(e => e.n-e.z > 5); // good
 //  smallData = smallData.filter(e => e.n != 70 && e.z != 70 && e.z != 60 && ( e.z >53 || e.z <50 ) && e.n != 82 && e.n != 25 && e.n != 132 && e.z != 15 && e.z != 50 && e.z != 68 && e.nMinusZ != 56 && e.n > 43);
   console.log('smallData size:', smallData.length);
 

@@ -1,7 +1,6 @@
 const S      = 9.47e-18;   // s⁻¹ from paper
 const c      = 299792458;  // speed of light
 const v1fm   = 4.77e22;    // c/(2π × 1fm) ≈ 4.775 × 10²²
-const SLATER = 0.9020413;  // Slater's Rules for Multi-Electron Atoms (Shielding)
 const fm     = 1e-15;
 const PI     = Math.PI;
 const E      = Math.E;
@@ -264,8 +263,11 @@ foam.CLASS({
       factory: function() {
         let n = this.n, z = this.z;
 
-        let f = 2.471180e20; // ν_e (Zitterbewegung frequency) ≈ 2.471 × 10^{20} Hz
-        let p = S / E;
+        const SLATER = 0.9020413;   // Slater's Rules for Multi-Electron Atoms (Shielding)
+        const ve     = 2.471180e20; // ν_e (Zitterbewegung frequency) ≈ 2.471 × 10^{20} Hz
+
+        let f = ve;       // frequency
+        let p = S / E;    // probability
 
         // Note: We have accidentally discovered the fine structured constant alpha at this point:
         // let alpha = 2 * Math.PI / (f * p);
@@ -287,17 +289,22 @@ foam.CLASS({
         // the Bottle method does, but they both extend it beyond the 497s baseline.
 
         // Electron Capture / B+ like
-        let pec   = 1 / C(Math.pow(n, SLATER), z - 4*PI);
+        let pec   = 1 / C(Math.pow(n+1, SLATER), z - 4*PI);
 
         // Electron Release / B- like / Free Neutron
-        let per   = 1 * C(Math.pow(n-1, SLATER), z); // -1 improves by 4%, expected by hypothesis, not fit
+        let per   = 1 * C(Math.pow(n-1, SLATER), z);
 
-        let decay = f * Math.pow(p * (pec + per), E/2); // Why ^E/2?
+        // Scale linear probability product to a continuous,
+        // two-phase (capture/release) volumetric execution rate
+        let decay = f * Math.pow(p * (pec + per), E/2);
         let hl    = Math.log(2) / decay;
 
-        hl = Math.pow(hl, 1/Math.PI);               // hyperspherical surface-to-volume scaling
+        // hyperspherical surface-to-volume scaling
+        hl = Math.pow(hl, E/4/PI);
 
-        let adj = (n / this.stableN);               // Adjust for curve in valley of stability
+        // Adjust for curve in valley of stability using standard formula
+        let adj = (n / (n + 0.006 * Math.pow(n, 2)));
+
         return Math.log10(hl) / adj;
       }
     },
@@ -306,10 +313,12 @@ foam.CLASS({
       name: 'error',
       factory: function() {
         const error = this.halfLifeLog10-this.calcHalfLifeLog10;
+        /*
         if ( error < 3 ) this.color = 'red';
         if ( error < 3 ) this.color = 'orange';
         if ( error < 2 ) this.color = 'yellow';
         if ( error < 1 ) this.color = 'green';
+        */
         return error;
       }
     },
@@ -329,7 +338,7 @@ foam.CLASS({
       name: 'color',
       factory: function() {
         let n = this.n;
-
+        if ( this.z == 0 ) return 'black';
         // TODO: I take the abs of log10(dt) because values below 0 are negative, so I should investiage if this is correct
         let e = Number.isNaN(this.dt) ? this.abserror : Math.max(0, this.abserror - Math.log10(this.dt+1));
         return e == 0 ? 'lime' : e < 1 ? 'green' : e < 2 ? 'yellow' : e < 3 ? 'orange' : 'red';
